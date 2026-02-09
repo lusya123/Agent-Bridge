@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import { spawnHandler } from '../../src/api/spawn.js';
 import {
@@ -6,6 +6,10 @@ import {
   createBridgeConfig,
   createClusterConfig,
 } from '../helpers.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function createMockHeartbeat() {
   return {
@@ -121,7 +125,7 @@ describe('POST /spawn', () => {
 
     expect(hbm.add).not.toHaveBeenCalled();
   });
-});
+
   it('returns 400 when task is missing', async () => {
     const { app } = buildApp();
 
@@ -132,3 +136,83 @@ describe('POST /spawn', () => {
     expect(body.error_code).toBe('MISSING_FIELDS');
     expect(body.error).toMatch(/type and task are required/);
   });
+
+  it('returns 404 when target machine is not found in cluster', async () => {
+    const config = createBridgeConfig({ machine_id: 'local-machine' });
+    const cluster = createClusterConfig([
+      { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
+    ]);
+    const { app } = buildApp(config, cluster, [createMockAdapter({ type: 'generic' })]);
+
+    const res = await postJSON(app, '/spawn', {
+      type: 'generic',
+      task: 'do task',
+      machine: 'remote-404',
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error_code).toBe('MACHINE_NOT_FOUND');
+    expect(body.error).toMatch(/Machine "remote-404" not found/);
+  });
+
+  it('returns 502 when remote machine is unreachable', async () => {
+    const config = createBridgeConfig({ machine_id: 'local-machine' });
+    const cluster = createClusterConfig([
+      { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
+    ]);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('connect ECONNREFUSED'));
+    const { app } = buildApp(config, cluster, [createMockAdapter({ type: 'generic' })]);
+
+    const res = await postJSON(app, '/spawn', {
+      type: 'generic',
+      task: 'do task',
+      machine: 'remote-1',
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(body.error_code).toBe('REMOTE_UNREACHABLE');
+    expect(body.error).toMatch(/Failed to reach remote-1/);
+  });
+
+  it('forwards remote response payload and status', async () => {
+    const config = createBridgeConfig({ machine_id: 'local-machine' });
+    const cluster = createClusterConfig([
+      { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
+    ]);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error_code: 'SPAWN_FAILED', error: 'remote failed' }),
+    } as Response);
+    const { app } = buildApp(config, cluster, [createMockAdapter({ type: 'generic' })]);
+
+    const res = await postJSON(app, '/spawn', {
+      type: 'generic',
+      task: 'do task',
+      machine: 'remote-1',
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error_code).toBe('SPAWN_FAILED');
+    expect(body.error).toBe('remote failed');
+  });
+
+  it('returns 500 when local adapter spawn throws', async () => {
+    const adapter = createMockAdapter({ type: 'claude-code' });
+    vi.mocked(adapter.spawnAgent!).mockRejectedValueOnce(new Error('spawn boom'));
+    const { app } = buildApp(createBridgeConfig(), createClusterConfig(), [adapter]);
+
+    const res = await postJSON(app, '/spawn', {
+      type: 'claude-code',
+      task: 'write tests',
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error_code).toBe('SPAWN_FAILED');
+    expect(body.error).toBe('spawn boom');
+  });
+});

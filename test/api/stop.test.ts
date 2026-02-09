@@ -70,6 +70,40 @@ describe('POST /stop', () => {
     expect(body.error).toMatch(/not found/);
   });
 
+  it('returns 400 when adapter does not support stop', async () => {
+    const adapter = createMockAdapter({
+      agents: [
+        { id: 'a1', type: 'generic', status: 'running', persistent: false },
+      ],
+    });
+    (adapter as any).stopAgent = undefined;
+    const { app } = buildApp([adapter]);
+
+    const res = await postJSON(app, '/stop', { agent_id: 'a1' });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error_code).toBe('ADAPTER_NO_STOP');
+    expect(body.error).toMatch(/does not support stop/);
+  });
+
+  it('returns 500 when adapter stop fails', async () => {
+    const adapter = createMockAdapter({
+      agents: [
+        { id: 'a1', type: 'generic', status: 'running', persistent: false },
+      ],
+    });
+    vi.mocked(adapter.stopAgent!).mockRejectedValueOnce(new Error('stop boom'));
+    const { app } = buildApp([adapter]);
+
+    const res = await postJSON(app, '/stop', { agent_id: 'a1' });
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error_code).toBe('STOP_FAILED');
+    expect(body.error).toBe('stop boom');
+  });
+
   it('removes heartbeat when stopping an agent', async () => {
     const adapter = createMockAdapter({
       agents: [

@@ -46,6 +46,28 @@ describe('POST /message', () => {
     expect(adapter.sendMessage).toHaveBeenCalledWith('a1', 'user', 'hello');
   });
 
+  it('uses anonymous sender when from is omitted', async () => {
+    const adapter = createMockAdapter({
+      agents: [
+        { id: 'a1', type: 'openclaw', status: 'running', persistent: false },
+      ],
+    });
+    const config = createBridgeConfig();
+    const cluster = createClusterConfig();
+    const router = new Router(config, cluster, [adapter]);
+    const app = buildApp(router);
+
+    const res = await postJSON(app, '/message', {
+      agent_id: 'a1',
+      message: 'hello',
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(adapter.sendMessage).toHaveBeenCalledWith('a1', 'anonymous', 'hello');
+  });
+
   it('returns 400 when agent_id is missing', async () => {
     const config = createBridgeConfig();
     const cluster = createClusterConfig();
@@ -95,5 +117,20 @@ describe('POST /message', () => {
     expect(res.status).toBe(404);
     expect(body.error_code).toBe('AGENT_NOT_FOUND');
     expect(body.error).toMatch(/not found/);
+  });
+
+  it('returns Unknown error when router throws non-Error value', async () => {
+    const router = { deliver: vi.fn().mockRejectedValue('bad') } as unknown as Router;
+    const app = buildApp(router);
+
+    const res = await postJSON(app, '/message', {
+      agent_id: 'a1',
+      message: 'hello',
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error_code).toBe('AGENT_NOT_FOUND');
+    expect(body.error).toBe('Unknown error');
   });
 });

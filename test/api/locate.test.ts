@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Hono } from 'hono';
 import { locateHandler } from '../../src/api/locate.js';
 import {
@@ -6,6 +6,10 @@ import {
   createBridgeConfig,
   createClusterConfig,
 } from '../helpers.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('GET /locate', () => {
   it('finds agent on a local adapter', async () => {
@@ -55,6 +59,48 @@ describe('GET /locate', () => {
     app.get('/locate', locateHandler(config, cluster, [adapter]));
 
     const res = await app.request('/locate?agent_id=nonexistent');
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error_code).toBe('AGENT_NOT_FOUND');
+    expect(body.error).toMatch(/not found/);
+  });
+
+  it('finds agent on remote machine when local misses', async () => {
+    const config = createBridgeConfig({ machine_id: 'local-machine' });
+    const cluster = createClusterConfig([
+      { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
+    ]);
+    const adapter = createMockAdapter({ agents: [] });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => [{ id: 'agent-remote', type: 'claude-code' }],
+    } as Response);
+
+    const app = new Hono();
+    app.get('/locate', locateHandler(config, cluster, [adapter]));
+
+    const res = await app.request('/locate?agent_id=agent-remote');
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.machine).toBe('remote-1');
+    expect(body.bridge).toBe('http://remote-1:9100');
+    expect(body.type).toBe('claude-code');
+  });
+
+  it('returns 404 with AGENT_NOT_FOUND when remote lookup throws', async () => {
+    const config = createBridgeConfig({ machine_id: 'local-machine' });
+    const cluster = createClusterConfig([
+      { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
+    ]);
+    const adapter = createMockAdapter({ agents: [] });
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
+
+    const app = new Hono();
+    app.get('/locate', locateHandler(config, cluster, [adapter]));
+
+    const res = await app.request('/locate?agent_id=ghost');
     const body = await res.json();
 
     expect(res.status).toBe(404);
