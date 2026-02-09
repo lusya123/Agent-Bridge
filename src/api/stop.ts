@@ -1,0 +1,7 @@
+import type { Context } from 'hono';
+
+export function stopHandler() {
+  return async (c: Context) => {
+    return c.json({ error: 'Not implemented (Phase 3)' }, 501);
+  };
+}

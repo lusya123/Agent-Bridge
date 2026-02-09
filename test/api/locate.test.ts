@@ -1,0 +1,62 @@
+import { describe, it, expect } from 'vitest';
+import { Hono } from 'hono';
+import { locateHandler } from '../../src/api/locate.js';
+import {
+  createMockAdapter,
+  createBridgeConfig,
+  createClusterConfig,
+} from '../helpers.js';
+
+describe('GET /locate', () => {
+  it('finds agent on a local adapter', async () => {
+    const config = createBridgeConfig({ port: 9100 });
+    const cluster = createClusterConfig();
+    const adapter = createMockAdapter({
+      type: 'openclaw',
+      agents: [
+        { id: 'agent-1', type: 'openclaw', status: 'running', persistent: false },
+      ],
+    });
+
+    const app = new Hono();
+    app.get('/locate', locateHandler(config, cluster, [adapter]));
+
+    const res = await app.request('/locate?agent_id=agent-1');
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.agent_id).toBe('agent-1');
+    expect(body.machine).toBe('test-machine');
+    expect(body.bridge).toBe('http://127.0.0.1:9100');
+    expect(body.type).toBe('openclaw');
+  });
+
+  it('returns 400 when agent_id query param is missing', async () => {
+    const config = createBridgeConfig();
+    const cluster = createClusterConfig();
+
+    const app = new Hono();
+    app.get('/locate', locateHandler(config, cluster, []));
+
+    const res = await app.request('/locate');
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toMatch(/agent_id is required/);
+  });
+
+  it('returns 404 when agent is not found', async () => {
+    const config = createBridgeConfig();
+    const cluster = createClusterConfig();
+    const adapter = createMockAdapter({ agents: [] });
+
+    const app = new Hono();
+    app.get('/locate', locateHandler(config, cluster, [adapter]));
+
+    const res = await app.request('/locate?agent_id=nonexistent');
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error).toMatch(/not found/);
+  });
+});
