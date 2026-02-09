@@ -129,9 +129,9 @@ describe('POST /message', () => {
     });
     const body = await res.json();
 
-    expect(res.status).toBe(404);
-    expect(body.error_code).toBe('AGENT_NOT_FOUND');
-    expect(body.error).toBe('Agent "a1" not found');
+    expect(res.status).toBe(500);
+    expect(body.error_code).toBe('INTERNAL_ERROR');
+    expect(body.error).toBe('Failed to deliver message');
     expect(body.detail).toBe('bad');
   });
 });

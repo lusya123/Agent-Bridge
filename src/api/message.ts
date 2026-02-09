@@ -37,10 +37,10 @@ export function messageHandler(router: Router) {
         );
       }
       return c.json(errorResponse(
-        ErrorCode.AGENT_NOT_FOUND,
-        `Agent "${body.agent_id}" not found`,
+        ErrorCode.INTERNAL_ERROR,
+        'Failed to deliver message',
         getErrorDetail(err),
-      ), 404);
+      ), 500);
     }
   };
 }
