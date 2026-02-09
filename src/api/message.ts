@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import type { Router } from '../router.js';
+import { ErrorCode } from '../errors.js';
 import { log } from '../logger.js';
 
 export function messageHandler(router: Router) {
@@ -12,7 +13,10 @@ export function messageHandler(router: Router) {
     log.debug('API', `POST /message agent_id=${body.agent_id}`);
 
     if (!body.agent_id || !body.message) {
-      return c.json({ error: 'agent_id and message are required' }, 400);
+      return c.json({
+        error_code: ErrorCode.MISSING_FIELDS,
+        error: 'agent_id and message are required',
+      }, 400);
     }
 
     const from = body.from || 'anonymous';
@@ -22,7 +26,10 @@ export function messageHandler(router: Router) {
       return c.json({ ok: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      return c.json({ error: msg }, 404);
+      return c.json({
+        error_code: ErrorCode.AGENT_NOT_FOUND,
+        error: msg,
+      }, 404);
     }
   };
 }

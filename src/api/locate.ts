@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { Adapter } from '../adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from '../config.js';
+import { ErrorCode } from '../errors.js';
 import { log } from '../logger.js';
 
 export function locateHandler(
@@ -12,7 +13,10 @@ export function locateHandler(
     const agentId = c.req.query('agent_id');
     log.debug('API', `GET /locate agent_id=${agentId}`);
     if (!agentId) {
-      return c.json({ error: 'agent_id is required' }, 400);
+      return c.json({
+        error_code: ErrorCode.MISSING_AGENT_ID,
+        error: 'agent_id is required',
+      }, 400);
     }
 
     // check local adapters first
@@ -57,6 +61,9 @@ export function locateHandler(
       }
     }
 
-    return c.json({ error: `Agent "${agentId}" not found` }, 404);
+    return c.json({
+      error_code: ErrorCode.AGENT_NOT_FOUND,
+      error: `Agent "${agentId}" not found`,
+    }, 404);
   };
 }

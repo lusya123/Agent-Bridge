@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import type { Adapter } from '../adapters/types.js';
+import { ErrorCode } from '../errors.js';
 import type { HeartbeatManager } from '../heartbeat.js';
 import { log } from '../logger.js';
 
@@ -9,13 +10,19 @@ export function stopHandler(adapters: Adapter[], heartbeatManager?: HeartbeatMan
     log.debug('API', `POST /stop agent_id=${body.agent_id}`);
 
     if (!body.agent_id) {
-      return c.json({ error: 'agent_id is required' }, 400);
+      return c.json({
+        error_code: ErrorCode.MISSING_AGENT_ID,
+        error: 'agent_id is required',
+      }, 400);
     }
 
     for (const adapter of adapters) {
       if (await adapter.hasAgent(body.agent_id)) {
         if (!adapter.stopAgent) {
-          return c.json({ error: `Adapter "${adapter.type}" does not support stop` }, 400);
+          return c.json({
+            error_code: ErrorCode.ADAPTER_NO_STOP,
+            error: `Adapter "${adapter.type}" does not support stop`,
+          }, 400);
         }
         try {
           await adapter.stopAgent(body.agent_id);
@@ -23,11 +30,17 @@ export function stopHandler(adapters: Adapter[], heartbeatManager?: HeartbeatMan
           return c.json({ ok: true });
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error';
-          return c.json({ error: msg }, 500);
+          return c.json({
+            error_code: ErrorCode.STOP_FAILED,
+            error: msg,
+          }, 500);
         }
       }
     }
 
-    return c.json({ error: `Agent "${body.agent_id}" not found` }, 404);
+    return c.json({
+      error_code: ErrorCode.AGENT_NOT_FOUND,
+      error: `Agent "${body.agent_id}" not found`,
+    }, 404);
   };
 }

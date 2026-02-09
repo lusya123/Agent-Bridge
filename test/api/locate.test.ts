@@ -42,6 +42,7 @@ describe('GET /locate', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(body.error_code).toBe('MISSING_AGENT_ID');
     expect(body.error).toMatch(/agent_id is required/);
   });
 
@@ -57,6 +58,7 @@ describe('GET /locate', () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
+    expect(body.error_code).toBe('AGENT_NOT_FOUND');
     expect(body.error).toMatch(/not found/);
   });
 });

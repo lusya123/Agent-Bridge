@@ -44,6 +44,7 @@ describe('POST /spawn', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(body.error_code).toBe('MISSING_FIELDS');
     expect(body.error).toMatch(/type and task are required/);
   });
 
@@ -79,6 +80,7 @@ describe('POST /spawn', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(body.error_code).toBe('NO_ADAPTER');
     expect(body.error).toMatch(/No adapter for type/);
   });
 
@@ -127,5 +129,6 @@ describe('POST /spawn', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(body.error_code).toBe('MISSING_FIELDS');
     expect(body.error).toMatch(/type and task are required/);
   });

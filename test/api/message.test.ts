@@ -58,6 +58,7 @@ describe('POST /message', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(body.error_code).toBe('MISSING_FIELDS');
     expect(body.error).toMatch(/agent_id and message are required/);
   });
 
@@ -73,6 +74,7 @@ describe('POST /message', () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
+    expect(body.error_code).toBe('MISSING_FIELDS');
     expect(body.error).toMatch(/agent_id and message are required/);
   });
 
@@ -91,6 +93,7 @@ describe('POST /message', () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
+    expect(body.error_code).toBe('AGENT_NOT_FOUND');
     expect(body.error).toMatch(/not found/);
   });
 });
