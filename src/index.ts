@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server';
 import { loadConfig } from './config.js';
 import { Router } from './router.js';
 import { OpenClawAdapter } from './adapters/openclaw.js';
+import { ClaudeCodeAdapter } from './adapters/claude-code.js';
 import type { Adapter } from './adapters/types.js';
 import { infoHandler } from './api/info.js';
 import { agentsHandler } from './api/agents.js';
@@ -15,7 +16,7 @@ async function main() {
   const { bridge: config, cluster } = loadConfig();
   const adapters: Adapter[] = [];
 
-  // initialize adapters based on capabilities
+  // initialize OpenClaw adapter
   if (config.capabilities.includes('openclaw') && config.adapters.openclaw) {
     const oc = new OpenClawAdapter(config.adapters.openclaw.gateway);
     try {
@@ -23,6 +24,18 @@ async function main() {
       adapters.push(oc);
     } catch (err) {
       console.warn('[Bridge] OpenClaw adapter failed to connect, skipping:',
+        err instanceof Error ? err.message : err);
+    }
+  }
+
+  // initialize Claude Code adapter
+  if (config.capabilities.includes('claude-code') && config.adapters.claude_code) {
+    const cc = new ClaudeCodeAdapter(config.adapters.claude_code.tmux_session);
+    try {
+      await cc.connect();
+      adapters.push(cc);
+    } catch (err) {
+      console.warn('[Bridge] Claude Code adapter failed to connect, skipping:',
         err instanceof Error ? err.message : err);
     }
   }
@@ -35,8 +48,8 @@ async function main() {
   app.get('/agents', agentsHandler(adapters));
   app.get('/locate', locateHandler(config, cluster, adapters));
   app.post('/message', messageHandler(router));
-  app.post('/spawn', spawnHandler());
-  app.post('/stop', stopHandler());
+  app.post('/spawn', spawnHandler(config, cluster, adapters));
+  app.post('/stop', stopHandler(adapters));
 
   const port = config.port;
   console.log(`[Bridge] Starting on :${port}`);

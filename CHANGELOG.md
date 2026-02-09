@@ -53,19 +53,42 @@
 
 ---
 
+### Phase 2：跨机器通信 + Claude Code 适配器 ✅
+
+#### 已完成
+
+**Claude Code 适配器**
+- `src/adapters/claude-code.ts` — 通过 tmux 管理 CC 实例
+  - `connect` — 确保 tmux session 存在
+  - `spawnAgent` — `tmux new-window` 创建 CC 实例
+  - `sendMessage` — `tmux send-keys` 发送消息
+  - `stopAgent` — `tmux kill-window` 停止实例
+  - `listAgents` — `tmux list-windows` 解析窗口列表
+  - `hasAgent` — 检查窗口是否存在
+
+**API 端点升级**
+- `POST /spawn` — 从占位改为实际实现，支持本机创建 + 远程转发
+- `POST /stop` — 从占位改为实际实现，通过适配器停止 Agent
+
+**服务入口更新**
+- `src/index.ts` — 新增 Claude Code 适配器初始化，更新 spawn/stop 路由签名
+
+**单元测试（14 new tests, 34 total, all passed）**
+- `test/helpers.ts` — 更新 mock adapter，新增 spawnAgent/stopAgent 桩函数
+- `test/adapters/claude-code.test.ts` — CC 适配器 tmux 命令 mock 测试（7 tests）
+- `test/api/spawn.test.ts` — 本机创建、缺参数 400、无匹配适配器（4 tests）
+- `test/api/stop.test.ts` — 停止 Agent、缺参数 400、未找到 404（3 tests）
+
+---
+
 ### 接下来要做
 
-**Phase 1 收尾**
-- TODO 10：本机通信验证（需要实际 OpenClaw Gateway 环境）
-
-**Phase 2：跨机器通信**
-- 第二台机器部署 Bridge
-- 验证跨机器消息投递
-- 编写 Claude Code 适配器（tmux 管理）
-- 验证 CC 创建 + curl 回调通知
+**部署验证**
+- 部署到云服务器验证跨机器通信
+- 验证 OpenClaw 适配器连接 Gateway
+- 验证 CC 适配器 tmux 管理
 
 **Phase 3：自主运行**
-- 实现 `/spawn` + `/stop` 端点
 - 配置 Cron 心跳
 - 编写 CEO 自主决策 Prompt
 - 系统自主运行 24h 观察

@@ -19,6 +19,10 @@ export function createMockAdapter(
     sendMessage: vi.fn(async () => {}),
     listAgents: vi.fn(async () => agents),
     hasAgent: vi.fn(async (id: string) => agents.some((a) => a.id === id)),
+    spawnAgent: vi.fn(async (options: { agent_id?: string; task: string }) => {
+      return options.agent_id || 'mock-agent-id';
+    }),
+    stopAgent: vi.fn(async () => {}),
   };
 }
 
