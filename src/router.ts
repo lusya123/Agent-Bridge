@@ -1,5 +1,6 @@
 import type { Adapter } from './adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from './config.js';
+import { log } from './logger.js';
 
 export class Router {
   constructor(
@@ -9,9 +10,11 @@ export class Router {
   ) {}
 
   async deliver(agentId: string, from: string, message: string): Promise<void> {
+    log.debug('Router', `Delivering message to ${agentId} from ${from}`);
     // try local adapters first
     for (const adapter of this.adapters) {
       if (await adapter.hasAgent(agentId)) {
+        log.debug('Router', `Found ${agentId} on local adapter ${adapter.type}`);
         await adapter.sendMessage(agentId, from, message);
         return;
       }

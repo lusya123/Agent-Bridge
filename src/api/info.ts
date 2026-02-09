@@ -2,9 +2,11 @@ import type { Context } from 'hono';
 import os from 'node:os';
 import type { BridgeConfig } from '../config.js';
 import type { Adapter } from '../adapters/types.js';
+import { log } from '../logger.js';
 
 export function infoHandler(config: BridgeConfig, adapters: Adapter[]) {
   return async (c: Context) => {
+    log.debug('API', 'GET /info');
     let runningAgents = 0;
     const persistentAgents = [];
 

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { log } from './logger.js';
 
 export interface HeartbeatEntry {
   agentId: string;
@@ -36,7 +37,7 @@ export class HeartbeatManager {
     for (const [schedule, message] of Object.entries(heartbeat)) {
       const cronExpr = SCHEDULE_MAP[schedule] || schedule;
       if (!cron.validate(cronExpr)) {
-        console.warn(`[Heartbeat] Invalid schedule "${schedule}" (${cronExpr}) for ${agentId}, skipping`);
+        log.warn('Heartbeat', `Invalid schedule "${schedule}" (${cronExpr}) for ${agentId}, skipping`);
         continue;
       }
 
@@ -47,9 +48,9 @@ export class HeartbeatManager {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ agent_id: agentId, from: 'system', message }),
           });
-          console.log(`[Heartbeat] Sent "${schedule}" to ${agentId}`);
+          log.debug('Heartbeat', `Sent "${schedule}" to ${agentId}`);
         } catch (err) {
-          console.warn(`[Heartbeat] Failed to send "${schedule}" to ${agentId}:`,
+          log.warn('Heartbeat', `Failed to send "${schedule}" to ${agentId}:`,
             err instanceof Error ? err.message : err);
         }
       });
@@ -63,7 +64,7 @@ export class HeartbeatManager {
       this.entries.set(agentId, entryList);
       this.stored[agentId] = { heartbeat, port };
       this.save();
-      console.log(`[Heartbeat] Registered ${tasks.length} schedule(s) for ${agentId}`);
+      log.info('Heartbeat', `Registered ${tasks.length} schedule(s) for ${agentId}`);
     }
   }
 
@@ -75,7 +76,7 @@ export class HeartbeatManager {
       this.entries.delete(agentId);
       delete this.stored[agentId];
       this.save();
-      console.log(`[Heartbeat] Removed schedules for ${agentId}`);
+      log.info('Heartbeat', `Removed schedules for ${agentId}`);
     }
   }
 
@@ -104,7 +105,7 @@ export class HeartbeatManager {
         this.add(agentId, heartbeat, port);
       }
     } catch (err) {
-      console.warn('[Heartbeat] Failed to load saved heartbeats:', err instanceof Error ? err.message : err);
+      log.warn('Heartbeat', 'Failed to load saved heartbeats:', err instanceof Error ? err.message : err);
     }
   }
 
@@ -115,7 +116,7 @@ export class HeartbeatManager {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
       writeFileSync(this.persistPath, JSON.stringify(this.stored, null, 2));
     } catch (err) {
-      console.warn('[Heartbeat] Failed to save heartbeats:', err instanceof Error ? err.message : err);
+      log.warn('Heartbeat', 'Failed to save heartbeats:', err instanceof Error ? err.message : err);
     }
   }
 }

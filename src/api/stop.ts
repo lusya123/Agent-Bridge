@@ -1,10 +1,12 @@
 import type { Context } from 'hono';
 import type { Adapter } from '../adapters/types.js';
 import type { HeartbeatManager } from '../heartbeat.js';
+import { log } from '../logger.js';
 
 export function stopHandler(adapters: Adapter[], heartbeatManager?: HeartbeatManager) {
   return async (c: Context) => {
     const body = await c.req.json<{ agent_id?: string }>();
+    log.debug('API', `POST /stop agent_id=${body.agent_id}`);
 
     if (!body.agent_id) {
       return c.json({ error: 'agent_id is required' }, 400);

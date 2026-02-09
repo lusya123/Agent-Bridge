@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import type { Adapter, SpawnOptions } from '../adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from '../config.js';
 import type { HeartbeatManager } from '../heartbeat.js';
+import { log } from '../logger.js';
 
 export function spawnHandler(
   config: BridgeConfig,
@@ -11,6 +12,7 @@ export function spawnHandler(
 ) {
   return async (c: Context) => {
     const body = await c.req.json<Partial<SpawnOptions>>();
+    log.debug('API', `POST /spawn type=${body.type} agent_id=${body.agent_id}`);
 
     if (!body.type || !body.task) {
       return c.json({ error: 'type and task are required' }, 400);

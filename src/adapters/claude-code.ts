@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { Adapter, AgentInfo, SpawnOptions } from './types.js';
+import { log } from '../logger.js';
 
 const execAsync = promisify(exec);
 
@@ -19,7 +20,7 @@ export class ClaudeCodeAdapter implements Adapter {
       await execAsync(`tmux has-session -t ${this.tmuxSession} 2>/dev/null`);
     } catch {
       await execAsync(`tmux new-session -d -s ${this.tmuxSession}`);
-      console.log(`[CC] Created tmux session: ${this.tmuxSession}`);
+      log.info('CC', `Created tmux session: ${this.tmuxSession}`);
     }
   }
 
@@ -74,7 +75,7 @@ export class ClaudeCodeAdapter implements Adapter {
     await execAsync(
       `tmux new-window -t ${this.tmuxSession} -n ${agentId} "claude --print '${task}'"`,
     );
-    console.log(`[CC] Spawned agent: ${agentId}`);
+    log.info('CC', `Spawned agent: ${agentId}`);
     return agentId;
   }
 
@@ -82,6 +83,6 @@ export class ClaudeCodeAdapter implements Adapter {
     await execAsync(
       `tmux kill-window -t ${this.tmuxSession}:${agentId}`,
     );
-    console.log(`[CC] Stopped agent: ${agentId}`);
+    log.info('CC', `Stopped agent: ${agentId}`);
   }
 }

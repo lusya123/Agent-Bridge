@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import type { Adapter, AgentInfo, SpawnOptions } from './types.js';
+import { log } from '../logger.js';
 
 interface RPCRequest {
   id: number;
@@ -36,7 +37,7 @@ export class OpenClawAdapter implements Adapter {
       this.ws = new WebSocket(this.gateway);
 
       this.ws.on('open', () => {
-        console.log(`[OpenClaw] Connected to ${this.gateway}`);
+        log.info('OpenClaw', `Connected to ${this.gateway}`);
         this.reconnectDelay = 1000;
         resolve();
       });
@@ -46,12 +47,12 @@ export class OpenClawAdapter implements Adapter {
       });
 
       this.ws.on('close', () => {
-        console.log('[OpenClaw] Disconnected, scheduling reconnect...');
+        log.debug('OpenClaw', 'Disconnected, scheduling reconnect...');
         this.scheduleReconnect();
       });
 
       this.ws.on('error', (err) => {
-        console.error('[OpenClaw] WebSocket error:', err.message);
+        log.error('OpenClaw', 'WebSocket error:', err.message);
         if (this.ws?.readyState !== WebSocket.OPEN) {
           reject(err);
         }

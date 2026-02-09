@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -86,10 +86,36 @@ describe('loadConfig', () => {
   });
 
   it('throws error when bridge.json is missing', () => {
-    // Do not write bridge.json — only cluster
+    // Do not write bridge.json — only cluster, and no example either
     writeCluster();
 
     expect(() => loadConfig()).toThrow(/Bridge config not found/);
+  });
+
+  it('auto-copies bridge.example.json when bridge.json is missing', () => {
+    // Write example but not bridge.json
+    writeFileSync(join(TMP, 'bridge.example.json'), JSON.stringify(sampleBridge));
+    writeCluster();
+
+    const { bridge } = loadConfig();
+
+    expect(bridge.machine_id).toBe('cloud-a');
+    expect(bridge.port).toBe(9100);
+    // Verify the file was actually created
+    expect(existsSync(join(TMP, 'bridge.json'))).toBe(true);
+  });
+
+  it('auto-copies cluster.example.json when cluster.json is missing', () => {
+    writeBridge();
+    // Write cluster example but not cluster.json
+    writeFileSync(join(TMP, 'cluster.example.json'), JSON.stringify(sampleCluster));
+
+    const { cluster } = loadConfig();
+
+    expect(cluster.machines).toHaveLength(1);
+    expect(cluster.machines[0].id).toBe('cloud-a');
+    // Verify the file was actually created
+    expect(existsSync(join(TMP, 'cluster.json'))).toBe(true);
   });
 
   it('returns empty machines array when cluster.json is missing', () => {

@@ -4,7 +4,11 @@
   "type": "module",
   "description": "分布式 Agent 通信平台 — 让不同框架的 Agent 跨机器协作",
   "main": "dist/index.js",
+  "bin": {
+    "agent-bridge": "dist/cli.js"
+  },
   "scripts": {
+    "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "test": "vitest run",

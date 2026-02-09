@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { Adapter } from '../adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from '../config.js';
+import { log } from '../logger.js';
 
 export function locateHandler(
   config: BridgeConfig,
@@ -9,6 +10,7 @@ export function locateHandler(
 ) {
   return async (c: Context) => {
     const agentId = c.req.query('agent_id');
+    log.debug('API', `GET /locate agent_id=${agentId}`);
     if (!agentId) {
       return c.json({ error: 'agent_id is required' }, 400);
     }

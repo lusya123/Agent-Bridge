@@ -1,5 +1,6 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { log } from './logger.js';
 
 // --- Types ---
 
@@ -45,7 +46,13 @@ export function loadConfig(): { bridge: BridgeConfig; cluster: ClusterConfig } {
 
   const bridgePath = resolve(configPath);
   if (!existsSync(bridgePath)) {
-    throw new Error(`Bridge config not found: ${bridgePath}`);
+    const examplePath = resolve(configPath.replace('.json', '.example.json'));
+    if (existsSync(examplePath)) {
+      copyFileSync(examplePath, bridgePath);
+      log.info('Config', `Created ${configPath} from ${configPath.replace('.json', '.example.json')}`);
+    } else {
+      throw new Error(`Bridge config not found: ${bridgePath}`);
+    }
   }
 
   const bridge = loadJSON<BridgeConfig>(bridgePath);
@@ -55,9 +62,19 @@ export function loadConfig(): { bridge: BridgeConfig; cluster: ClusterConfig } {
   if (process.env.MACHINE_ID) bridge.machine_id = process.env.MACHINE_ID;
 
   const resolvedClusterPath = resolve(clusterPath);
-  const cluster: ClusterConfig = existsSync(resolvedClusterPath)
-    ? loadJSON<ClusterConfig>(resolvedClusterPath)
-    : { machines: [] };
+  let cluster: ClusterConfig;
+  if (existsSync(resolvedClusterPath)) {
+    cluster = loadJSON<ClusterConfig>(resolvedClusterPath);
+  } else {
+    const clusterExamplePath = resolve(clusterPath.replace('.json', '.example.json'));
+    if (existsSync(clusterExamplePath)) {
+      copyFileSync(clusterExamplePath, resolvedClusterPath);
+      log.info('Config', `Created ${clusterPath} from ${clusterPath.replace('.json', '.example.json')}`);
+      cluster = loadJSON<ClusterConfig>(resolvedClusterPath);
+    } else {
+      cluster = { machines: [] };
+    }
+  }
 
   return { bridge, cluster };
 }

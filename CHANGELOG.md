@@ -126,13 +126,53 @@
 
 ---
 
-### 接下来要做
+### 日志系统 + CLI + 一键安装 ✅
 
-**日志系统 + CLI + 一键安装**（详见 `doc/日志系统-CLI-一键安装-实施计划.md`）
-- 日志级别控制（debug/info/warn/error）
-- CLI 入口（`agent-bridge --debug`）
-- 一键安装脚本（`curl | bash`）
-- 自动生成默认配置
+#### 已完成
+
+**日志工具**
+- `src/logger.ts` — 统一日志模块（debug/info/warn/error 四级）
+  - `LOG_LEVEL` 环境变量控制，默认 `info`
+  - 输出格式：`[HH:MM:SS] [LEVEL] [tag] message`
+  - `setLevel()` 运行时切换级别
+
+**替换全部 console 调用**
+- 替换 22 处 `console.log/warn/error` 为 `log.debug/info/warn/error`
+- 新增 8 处 debug 日志（Router 路由决策 + 6 个 API 请求日志）
+- 涉及文件：index.ts, heartbeat.ts, openclaw.ts, claude-code.ts, router.ts, api/*.ts
+
+**CLI 入口**
+- `src/cli.ts` — 命令行入口（`#!/usr/bin/env node`）
+  - `--debug` 启用 debug 级别日志
+  - `--port 9200` 自定义端口
+  - `--config ./my.json` 自定义配置路径
+
+**配置自动生成**
+- `src/config.ts` — bridge.json 不存在时自动从 bridge.example.json 复制
+- 同理处理 cluster.json → cluster.example.json
+
+**一键安装脚本**
+- `scripts/install.sh` — 检查 Node >= 18 → clone → npm install && build → symlink /usr/local/bin/agent-bridge
+
+**package.json 更新**
+- 新增 `bin` 字段：`agent-bridge` → `dist/cli.js`
+- 新增 `start` 脚本：`node dist/index.js`
+
+**单元测试（21 new tests, 67 total, 12 files, all passed）**
+- `test/logger.test.ts` — Logger 完整测试（16 tests）
+  - 级别过滤（debug/info/warn/error 各级别抑制）
+  - setLevel 动态切换（debug/warn/error 三种场景）
+  - 输出格式验证（timestamp + level + tag）
+  - console 方法路由（log→console.log, warn→console.warn, error→console.error）
+  - 多参数传递 + Error 对象处理
+- `test/cli.test.ts` — CLI 子进程测试（3 tests）
+  - --config 自定义路径、缺失配置退出码、--debug 启用 ERROR 输出
+- `test/config.test.ts` — 新增自动复制测试（2 tests）
+  - bridge.example.json 自动复制 + cluster.example.json 自动复制
+
+---
+
+### 接下来要做
 
 **部署验证**
 - 部署到云服务器验证跨机器通信

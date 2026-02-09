@@ -13,8 +13,9 @@ import { locateHandler } from './api/locate.js';
 import { messageHandler } from './api/message.js';
 import { spawnHandler } from './api/spawn.js';
 import { stopHandler } from './api/stop.js';
+import { log } from './logger.js';
 
-async function main() {
+export async function main() {
   const { bridge: config, cluster } = loadConfig();
   const adapters: Adapter[] = [];
 
@@ -25,7 +26,7 @@ async function main() {
       await oc.connect();
       adapters.push(oc);
     } catch (err) {
-      console.warn('[Bridge] OpenClaw adapter failed to connect, skipping:',
+      log.warn('Bridge', 'OpenClaw adapter failed to connect, skipping:',
         err instanceof Error ? err.message : err);
     }
   }
@@ -37,7 +38,7 @@ async function main() {
       await cc.connect();
       adapters.push(cc);
     } catch (err) {
-      console.warn('[Bridge] Claude Code adapter failed to connect, skipping:',
+      log.warn('Bridge', 'Claude Code adapter failed to connect, skipping:',
         err instanceof Error ? err.message : err);
     }
   }
@@ -57,17 +58,17 @@ async function main() {
   app.post('/stop', stopHandler(adapters, heartbeat));
 
   const port = config.port;
-  console.log(`[Bridge] Starting on :${port}`);
-  console.log(`[Bridge] Machine: ${config.machine_id}`);
-  console.log(`[Bridge] Capabilities: ${config.capabilities.join(', ')}`);
-  console.log(`[Bridge] Adapters: ${adapters.map((a) => a.type).join(', ') || 'none'}`);
-  console.log(`[Bridge] Cluster: ${cluster.machines.length} machines`);
-  console.log(`[Bridge] Heartbeats: ${heartbeat.list().length} active`);
+  log.info('Bridge', `Starting on :${port}`);
+  log.info('Bridge', `Machine: ${config.machine_id}`);
+  log.info('Bridge', `Capabilities: ${config.capabilities.join(', ')}`);
+  log.info('Bridge', `Adapters: ${adapters.map((a) => a.type).join(', ') || 'none'}`);
+  log.info('Bridge', `Cluster: ${cluster.machines.length} machines`);
+  log.info('Bridge', `Heartbeats: ${heartbeat.list().length} active`);
 
   serve({ fetch: app.fetch, port });
 }
 
 main().catch((err) => {
-  console.error('[Bridge] Fatal:', err);
+  log.error('Bridge', 'Fatal:', err);
   process.exit(1);
 });
