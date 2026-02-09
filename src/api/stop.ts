@@ -1,7 +1,8 @@
 import type { Context } from 'hono';
 import type { Adapter } from '../adapters/types.js';
+import type { HeartbeatManager } from '../heartbeat.js';
 
-export function stopHandler(adapters: Adapter[]) {
+export function stopHandler(adapters: Adapter[], heartbeatManager?: HeartbeatManager) {
   return async (c: Context) => {
     const body = await c.req.json<{ agent_id?: string }>();
 
@@ -16,6 +17,7 @@ export function stopHandler(adapters: Adapter[]) {
         }
         try {
           await adapter.stopAgent(body.agent_id);
+          heartbeatManager?.remove(body.agent_id);
           return c.json({ ok: true });
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error';

@@ -1,11 +1,13 @@
 import type { Context } from 'hono';
 import type { Adapter, SpawnOptions } from '../adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from '../config.js';
+import type { HeartbeatManager } from '../heartbeat.js';
 
 export function spawnHandler(
   config: BridgeConfig,
   cluster: ClusterConfig,
   adapters: Adapter[],
+  heartbeatManager?: HeartbeatManager,
 ) {
   return async (c: Context) => {
     const body = await c.req.json<Partial<SpawnOptions>>();
@@ -44,6 +46,9 @@ export function spawnHandler(
 
     try {
       const agentId = await adapter.spawnAgent(body as SpawnOptions);
+      if (heartbeatManager && body.heartbeat && Object.keys(body.heartbeat).length > 0) {
+        heartbeatManager.add(agentId, body.heartbeat, config.port);
+      }
       return c.json({ ok: true, agent_id: agentId, machine: config.machine_id });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

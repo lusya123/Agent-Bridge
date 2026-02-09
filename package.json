@@ -20,10 +20,12 @@
   "dependencies": {
     "@hono/node-server": "^1.19.9",
     "hono": "^4.11.9",
+    "node-cron": "^4.2.1",
     "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",
+    "@types/node-cron": "^3.0.11",
     "@types/ws": "^8.18.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

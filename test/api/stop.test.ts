@@ -1,12 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
 import { stopHandler } from '../../src/api/stop.js';
 import { createMockAdapter } from '../helpers.js';
 
-function buildApp(adapters = [createMockAdapter()]) {
+function createMockHeartbeat() {
+  return {
+    add: vi.fn(),
+    remove: vi.fn(),
+    list: vi.fn(() => []),
+    stopAll: vi.fn(),
+    load: vi.fn(),
+  };
+}
+
+function buildApp(
+  adapters = [createMockAdapter()],
+  heartbeatManager?: ReturnType<typeof createMockHeartbeat>,
+) {
   const app = new Hono();
-  app.post('/stop', stopHandler(adapters));
-  return { app, adapters };
+  app.post('/stop', stopHandler(adapters, heartbeatManager as any));
+  return { app, adapters, heartbeatManager };
 }
 
 function postJSON(app: Hono, path: string, body: object) {
@@ -53,5 +66,22 @@ describe('POST /stop', () => {
 
     expect(res.status).toBe(404);
     expect(body.error).toMatch(/not found/);
+  });
+
+  it('removes heartbeat when stopping an agent', async () => {
+    const adapter = createMockAdapter({
+      agents: [
+        { id: 'a1', type: 'generic', status: 'running', persistent: false },
+      ],
+    });
+    const hbm = createMockHeartbeat();
+    const { app } = buildApp([adapter], hbm);
+
+    const res = await postJSON(app, '/stop', { agent_id: 'a1' });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(hbm.remove).toHaveBeenCalledWith('a1');
   });
 });

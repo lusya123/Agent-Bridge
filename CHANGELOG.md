@@ -81,14 +81,61 @@
 
 ---
 
+### Phase 3：Cron 心跳 + CEO 自主决策 ✅
+
+#### 已完成
+
+**心跳管理器**
+- `src/heartbeat.ts` — HeartbeatManager 类，进程内 cron 调度
+  - `add` — 注册心跳（支持 hourly / daily_9am / weekly_monday + 自定义 cron 表达式）
+  - `remove` — 移除 Agent 的所有心跳
+  - `list` — 列出活跃心跳
+  - `stopAll` — 清理所有心跳
+  - `load` / `save` — 持久化到 `data/heartbeats.json`，重启自动恢复
+  - 每个心跳 job 通过 HTTP POST 发送到 Bridge `/message` 端点
+
+**API 集成**
+- `POST /spawn` — 支持 `heartbeat` 参数，spawn 成功后自动注册心跳
+- `POST /stop` — 停止 Agent 时自动清理心跳
+
+**服务入口更新**
+- `src/index.ts` — 初始化 HeartbeatManager，启动时恢复持久化心跳，传递给 spawn/stop handler
+
+**CEO 自主决策 Prompt**
+- `config/ceo-prompt.md` — CEO Agent 系统提示词
+  - 职责定义、通信方式（sessions_send + curl Bridge）
+  - 三种心跳行为（小心跳/日心跳/周心跳）
+  - 决策原则（发布需人类审核、花钱需确认、分析可自主）
+
+**生产部署脚本**
+- `scripts/setup-heartbeat.sh` — 安装系统 cron 心跳到 `/etc/cron.d/agent-heartbeat`
+  - 支持 `--port` 和 `--agent` 参数
+  - 三种频率：每小时 + 每天 9 点 + 每周一 9 点
+
+**新增依赖**
+- `node-cron` — 轻量级进程内 cron 调度
+
+**单元测试（12 new tests, 46 total, 10 files, all passed）**
+- `test/heartbeat.test.ts` — HeartbeatManager 完整测试（9 tests）
+  - add/remove/list/stopAll 基本操作
+  - cron 表达式映射（hourly/daily/weekly + 自定义）
+  - 无效表达式跳过
+  - 持久化 save/load + 缺失文件处理
+- `test/api/spawn.test.ts` — 新增心跳注册 + 无心跳不注册（2 tests）
+- `test/api/stop.test.ts` — 新增停止时清理心跳（1 test）
+
+---
+
 ### 接下来要做
 
 **部署验证**
 - 部署到云服务器验证跨机器通信
 - 验证 OpenClaw 适配器连接 Gateway
 - 验证 CC 适配器 tmux 管理
+- 验证心跳调度实际触发
 
-**Phase 3：自主运行**
-- 配置 Cron 心跳
-- 编写 CEO 自主决策 Prompt
-- 系统自主运行 24h 观察
+**Phase 4：Happy 集成 + 人类监控（可选）**
+- 部署 Happy Daemon
+- Bridge CC 适配器改为通过 Happy 管理
+- 手机安装 Happy App
+- 配置审批推送

@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
+import { resolve } from 'node:path';
 import { loadConfig } from './config.js';
 import { Router } from './router.js';
+import { HeartbeatManager } from './heartbeat.js';
 import { OpenClawAdapter } from './adapters/openclaw.js';
 import { ClaudeCodeAdapter } from './adapters/claude-code.js';
 import type { Adapter } from './adapters/types.js';
@@ -41,6 +43,9 @@ async function main() {
   }
 
   const router = new Router(config, cluster, adapters);
+  const heartbeat = new HeartbeatManager();
+  heartbeat.load(resolve('data/heartbeats.json'));
+
   const app = new Hono();
 
   // register routes
@@ -48,8 +53,8 @@ async function main() {
   app.get('/agents', agentsHandler(adapters));
   app.get('/locate', locateHandler(config, cluster, adapters));
   app.post('/message', messageHandler(router));
-  app.post('/spawn', spawnHandler(config, cluster, adapters));
-  app.post('/stop', stopHandler(adapters));
+  app.post('/spawn', spawnHandler(config, cluster, adapters, heartbeat));
+  app.post('/stop', stopHandler(adapters, heartbeat));
 
   const port = config.port;
   console.log(`[Bridge] Starting on :${port}`);
@@ -57,6 +62,7 @@ async function main() {
   console.log(`[Bridge] Capabilities: ${config.capabilities.join(', ')}`);
   console.log(`[Bridge] Adapters: ${adapters.map((a) => a.type).join(', ') || 'none'}`);
   console.log(`[Bridge] Cluster: ${cluster.machines.length} machines`);
+  console.log(`[Bridge] Heartbeats: ${heartbeat.list().length} active`);
 
   serve({ fetch: app.fetch, port });
 }
