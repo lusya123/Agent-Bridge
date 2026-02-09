@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import type { Adapter, SpawnOptions } from '../adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from '../config.js';
-import { ErrorCode } from '../errors.js';
+import { ErrorCode, errorResponse, getErrorDetail } from '../errors.js';
 import type { HeartbeatManager } from '../heartbeat.js';
 import { log } from '../logger.js';
 
@@ -16,10 +16,10 @@ export function spawnHandler(
     log.debug('API', `POST /spawn type=${body.type} agent_id=${body.agent_id}`);
 
     if (!body.type || !body.task) {
-      return c.json({
-        error_code: ErrorCode.MISSING_FIELDS,
-        error: 'type and task are required',
-      }, 400);
+      return c.json(errorResponse(
+        ErrorCode.MISSING_FIELDS,
+        'type and task are required',
+      ), 400);
     }
 
     const targetMachine = body.machine || config.machine_id;
@@ -28,10 +28,10 @@ export function spawnHandler(
     if (targetMachine !== config.machine_id && targetMachine !== 'auto') {
       const machine = cluster.machines.find((m) => m.id === targetMachine);
       if (!machine) {
-        return c.json({
-          error_code: ErrorCode.MACHINE_NOT_FOUND,
-          error: `Machine "${targetMachine}" not found`,
-        }, 404);
+        return c.json(errorResponse(
+          ErrorCode.MACHINE_NOT_FOUND,
+          `Machine "${targetMachine}" not found`,
+        ), 404);
       }
       try {
         const res = await fetch(`${machine.bridge}/spawn`, {
@@ -39,24 +39,33 @@ export function spawnHandler(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...body, machine: machine.id }),
         });
-        const result = await res.json();
+        let result: unknown;
+        try {
+          result = await res.json();
+        } catch (err) {
+          return c.json(errorResponse(
+            ErrorCode.REMOTE_UNREACHABLE,
+            `Remote bridge "${targetMachine}" returned non-JSON response`,
+            getErrorDetail(err),
+          ), 502);
+        }
         return c.json(result, res.status as 200);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        return c.json({
-          error_code: ErrorCode.REMOTE_UNREACHABLE,
-          error: `Failed to reach ${targetMachine}: ${msg}`,
-        }, 502);
+        return c.json(errorResponse(
+          ErrorCode.REMOTE_UNREACHABLE,
+          `Failed to reach ${targetMachine}`,
+          getErrorDetail(err),
+        ), 502);
       }
     }
 
     // local spawn: find matching adapter
     const adapter = adapters.find((a) => a.type === body.type);
     if (!adapter || !adapter.spawnAgent) {
-      return c.json({
-        error_code: ErrorCode.NO_ADAPTER,
-        error: `No adapter for type "${body.type}"`,
-      }, 400);
+      return c.json(errorResponse(
+        ErrorCode.NO_ADAPTER,
+        `No adapter for type "${body.type}"`,
+      ), 400);
     }
 
     try {
@@ -66,11 +75,11 @@ export function spawnHandler(
       }
       return c.json({ ok: true, agent_id: agentId, machine: config.machine_id });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      return c.json({
-        error_code: ErrorCode.SPAWN_FAILED,
-        error: msg,
-      }, 500);
+      return c.json(errorResponse(
+        ErrorCode.SPAWN_FAILED,
+        'Failed to spawn agent',
+        getErrorDetail(err),
+      ), 500);
     }
   };
 }

@@ -119,7 +119,7 @@ describe('POST /message', () => {
     expect(body.error).toMatch(/not found/);
   });
 
-  it('returns Unknown error when router throws non-Error value', async () => {
+  it('puts raw thrown value into detail when router throws non-Error value', async () => {
     const router = { deliver: vi.fn().mockRejectedValue('bad') } as unknown as Router;
     const app = buildApp(router);
 
@@ -131,6 +131,7 @@ describe('POST /message', () => {
 
     expect(res.status).toBe(404);
     expect(body.error_code).toBe('AGENT_NOT_FOUND');
-    expect(body.error).toBe('Unknown error');
+    expect(body.error).toBe('Agent "a1" not found');
+    expect(body.detail).toBe('bad');
   });
 });

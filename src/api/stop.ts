@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import type { Adapter } from '../adapters/types.js';
-import { ErrorCode } from '../errors.js';
+import { ErrorCode, errorResponse, getErrorDetail } from '../errors.js';
 import type { HeartbeatManager } from '../heartbeat.js';
 import { log } from '../logger.js';
 
@@ -10,37 +10,37 @@ export function stopHandler(adapters: Adapter[], heartbeatManager?: HeartbeatMan
     log.debug('API', `POST /stop agent_id=${body.agent_id}`);
 
     if (!body.agent_id) {
-      return c.json({
-        error_code: ErrorCode.MISSING_AGENT_ID,
-        error: 'agent_id is required',
-      }, 400);
+      return c.json(errorResponse(
+        ErrorCode.MISSING_AGENT_ID,
+        'agent_id is required',
+      ), 400);
     }
 
     for (const adapter of adapters) {
       if (await adapter.hasAgent(body.agent_id)) {
         if (!adapter.stopAgent) {
-          return c.json({
-            error_code: ErrorCode.ADAPTER_NO_STOP,
-            error: `Adapter "${adapter.type}" does not support stop`,
-          }, 400);
+          return c.json(errorResponse(
+            ErrorCode.ADAPTER_NO_STOP,
+            `Adapter "${adapter.type}" does not support stop`,
+          ), 400);
         }
         try {
           await adapter.stopAgent(body.agent_id);
           heartbeatManager?.remove(body.agent_id);
           return c.json({ ok: true });
         } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Unknown error';
-          return c.json({
-            error_code: ErrorCode.STOP_FAILED,
-            error: msg,
-          }, 500);
+          return c.json(errorResponse(
+            ErrorCode.STOP_FAILED,
+            'Failed to stop agent',
+            getErrorDetail(err),
+          ), 500);
         }
       }
     }
 
-    return c.json({
-      error_code: ErrorCode.AGENT_NOT_FOUND,
-      error: `Agent "${body.agent_id}" not found`,
-    }, 404);
+    return c.json(errorResponse(
+      ErrorCode.AGENT_NOT_FOUND,
+      `Agent "${body.agent_id}" not found`,
+    ), 404);
   };
 }

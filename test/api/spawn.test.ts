@@ -213,6 +213,7 @@ describe('POST /spawn', () => {
 
     expect(res.status).toBe(500);
     expect(body.error_code).toBe('SPAWN_FAILED');
-    expect(body.error).toBe('spawn boom');
+    expect(body.error).toBe('Failed to spawn agent');
+    expect(body.detail).toBe('spawn boom');
   });
 });

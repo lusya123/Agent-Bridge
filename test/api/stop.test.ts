@@ -101,7 +101,8 @@ describe('POST /stop', () => {
 
     expect(res.status).toBe(500);
     expect(body.error_code).toBe('STOP_FAILED');
-    expect(body.error).toBe('stop boom');
+    expect(body.error).toBe('Failed to stop agent');
+    expect(body.detail).toBe('stop boom');
   });
 
   it('removes heartbeat when stopping an agent', async () => {

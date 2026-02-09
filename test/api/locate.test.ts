@@ -89,7 +89,7 @@ describe('GET /locate', () => {
     expect(body.type).toBe('claude-code');
   });
 
-  it('returns 404 with AGENT_NOT_FOUND when remote lookup throws', async () => {
+  it('returns 502 with REMOTE_UNREACHABLE when remote lookup throws', async () => {
     const config = createBridgeConfig({ machine_id: 'local-machine' });
     const cluster = createClusterConfig([
       { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
@@ -103,8 +103,9 @@ describe('GET /locate', () => {
     const res = await app.request('/locate?agent_id=ghost');
     const body = await res.json();
 
-    expect(res.status).toBe(404);
-    expect(body.error_code).toBe('AGENT_NOT_FOUND');
-    expect(body.error).toMatch(/not found/);
+    expect(res.status).toBe(502);
+    expect(body.error_code).toBe('REMOTE_UNREACHABLE');
+    expect(body.error).toMatch(/Failed to fully query cluster/);
+    expect(body.detail).toMatch(/network down/);
   });
 });
