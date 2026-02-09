@@ -1,0 +1,8 @@
+{
+  "machine_id": "cloud-b",
+  "port": 9100,
+  "capabilities": ["test"],
+  "max_agents": 10,
+  "persistent_agents": [],
+  "adapters": {}
+}

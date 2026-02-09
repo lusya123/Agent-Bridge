@@ -14,7 +14,7 @@ export interface PersistentAgent {
 export interface BridgeConfig {
   machine_id: string;
   port: number;
-  capabilities: ('openclaw' | 'claude-code')[];
+  capabilities: ('openclaw' | 'claude-code' | 'test')[];
   max_agents: number;
   persistent_agents: PersistentAgent[];
   adapters: {
