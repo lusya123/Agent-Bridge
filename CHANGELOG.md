@@ -128,6 +128,12 @@
 
 ### 接下来要做
 
+**日志系统 + CLI + 一键安装**（详见 `doc/日志系统-CLI-一键安装-实施计划.md`）
+- 日志级别控制（debug/info/warn/error）
+- CLI 入口（`agent-bridge --debug`）
+- 一键安装脚本（`curl | bash`）
+- 自动生成默认配置
+
 **部署验证**
 - 部署到云服务器验证跨机器通信
 - 验证 OpenClaw 适配器连接 Gateway
