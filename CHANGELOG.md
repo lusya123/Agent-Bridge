@@ -172,13 +172,94 @@
 
 ---
 
+### 标准化错误响应 ✅
+
+#### 已完成
+
+**错误码体系**
+- `src/errors.ts` — 统一错误码枚举 + BridgeError 类 + errorResponse 工厂函数
+  - `MISSING_FIELDS` / `AGENT_NOT_FOUND` / `NO_ADAPTER` / `SPAWN_FAILED`
+  - `MACHINE_NOT_FOUND` / `REMOTE_UNREACHABLE` / `STOP_NOT_SUPPORTED` / `STOP_FAILED`
+- 所有 6 个 API 端点统一返回 `{ error_code, error, detail? }` 格式
+- 远程转发错误保留原始 error_code + detail
+
+**单元测试（10 new tests, 77 total, 12 files, all passed）**
+- 新增边界用例覆盖：远程错误解析、非 JSON 响应处理、消息投递 fallback 分类
+
+---
+
+### 真机部署验证 ✅
+
+#### 分支：`deploy/real-machine-test`
+
+**测试环境**
+- Server A (cloud-a): `43.134.124.4` — OpenCloudOS 9.4, Node.js 18.20.8
+- Server B (cloud-b): `150.109.16.237` — Ubuntu 22.04, Node.js 22.22.0
+
+**新增代码**
+- `src/adapters/test.ts` — 内存测试适配器（TestAdapter）
+  - 实现完整 Adapter 接口，用 Map 存储 agents 和 messages
+  - 额外暴露 `getMessages(agentId)` 方法用于集成测试验证
+- `src/api/test-messages.ts` — 诊断端点 `GET /test/messages?agent_id=xxx`
+- `src/index.ts` — 新增 `test` capability 支持 + 注册诊断端点
+- `src/config.ts` — capabilities 类型扩展支持 `'test'`
+- `src/adapters/types.ts` — SpawnOptions.type 扩展支持 `'generic'`
+
+**配置模板**
+- `config/bridge.cloud-a.json` — Server A 配置（machine_id: cloud-a）
+- `config/bridge.cloud-b.json` — Server B 配置（machine_id: cloud-b）
+- `config/cluster.deploy-test.json` — 集群配置（两台公网 IP）
+
+**自动化集成测试**
+- `scripts/integration-test.sh` — 用 curl + jq 编写的端到端测试脚本
+
+#### 测试过程
+
+1. **环境搭建**：两台服务器安装 Node.js、git、jq、screen，开放 OS 防火墙 + 云安全组 9100 端口
+2. **代码部署**：git clone → checkout 分支 → npm install → npm run build
+3. **单元测试**：两台服务器各 77 个测试全部通过
+4. **服务启动**：screen -dmS 后台运行 Bridge，LOG_LEVEL=debug
+5. **集成测试**：从 Server A 运行 integration-test.sh
+
+#### 测试结果
+
+**单元测试：77 passed（两台服务器均通过）**
+
+**集成测试：17 passed, 0 failed**
+
+| 测试项 | 结果 |
+|--------|------|
+| Server A /info 可达 | ✅ |
+| Server B /info 可达 | ✅ |
+| Server B 本地 spawn | ✅ |
+| Server A 本地 spawn | ✅ |
+| 跨机器 locate（A 定位 B 上的 agent） | ✅ |
+| 跨机器消息投递（A → B） | ✅ |
+| 消息到达验证（内容 + 发送者） | ✅ |
+| 双向通信（B → A） | ✅ |
+| 远程 spawn 转发（A 在 B 上创建 agent） | ✅ |
+| Agent 停止 + 移除验证 | ✅ |
+
+**心跳测试：通过**
+- spawn 带 `* * * * *` cron 的 agent
+- 等待 65 秒后检查，收到 2 条心跳消息（精确到分钟触发）
+- 停止 agent 后 schedule 被正确移除
+
+#### 发现的问题
+
+1. **云安全组未开放端口**（已解决）：OS 防火墙（firewalld/ufw）和云厂商安全组是两层独立的防火墙，都需要开放 9100 端口
+2. **SSH 远程执行复杂 JSON 命令引号嵌套**（已绕过）：使用 base64 编码传递 JSON payload
+3. **nohup 通过 SSH 启动后台进程不可靠**（已绕过）：改用 screen -dmS
+
+**代码 bug：未发现** — 所有功能在真实网络环境下表现与单元测试一致
+
+---
+
 ### 接下来要做
 
-**部署验证**
-- 部署到云服务器验证跨机器通信
-- 验证 OpenClaw 适配器连接 Gateway
-- 验证 CC 适配器 tmux 管理
-- 验证心跳调度实际触发
+**适配器真机验证（未完成）**
+- 验证 OpenClaw 适配器连接 Gateway（需部署 OpenClaw Gateway）
+- 验证 CC 适配器 tmux 管理（需安装 Claude Code）
 
 **Phase 4：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon
