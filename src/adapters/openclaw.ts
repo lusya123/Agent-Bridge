@@ -92,10 +92,10 @@ export class OpenClawAdapter implements Adapter {
       minProtocol: 3,
       maxProtocol: 3,
       client: {
-        id: 'agent-bridge',
+        id: 'gateway-client',
         version: '0.1.0',
         platform: process.platform,
-        mode: 'operator',
+        mode: 'backend',
       },
       role: 'operator',
       scopes: ['operator.read', 'operator.write'],
