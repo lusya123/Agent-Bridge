@@ -1,0 +1,9 @@
+{
+  "id": "agent-bridge",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "skills": ["./skills/agent-bridge-guide"]
+}

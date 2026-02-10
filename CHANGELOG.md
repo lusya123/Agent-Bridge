@@ -1,5 +1,39 @@
 # Agent Bridge — Changelog
 
+## [0.2.0] - 2026-02-10
+
+### Phase 5: OpenClaw Plugin + CLI Install/Uninstall ✅
+
+#### 新增
+
+**OpenClaw Plugin**（`src/openclaw-plugin/`）
+- `index.ts` — 插件入口，注册 4 个 Bridge 工具
+  - `bridge_agents` — 查看集群中所有 Agent
+  - `bridge_spawn` — 创建新 Agent（本机或远程）
+  - `bridge_message` — 发消息给任意 Agent
+  - `bridge_stop` — 停止 Agent
+- `openclaw.plugin.json` — 插件清单（含 skill 路径）
+- `package.json` — 包描述（openclaw.extensions 字段）
+- `skills/agent-bridge-guide/SKILL.md` — 使用指南（教 Agent 何时/如何使用 Bridge）
+
+工具通过 `fetch()` 调用本地 Bridge HTTP API，endpoint 从 `AGENT_BRIDGE_ENDPOINT` 环境变量读取（默认 `http://127.0.0.1:9100`）。
+
+**CLI 子命令**（`src/cli.ts`）
+- `agent-bridge install` — 复制 plugin 到 `~/.openclaw/extensions/agent-bridge/`
+- `agent-bridge uninstall` — 删除 plugin 目录
+- `agent-bridge start` — 启动服务（自动检测未 install 则先 install）
+- `agent-bridge [无参数]` — 等同于 start（向后兼容）
+
+**构建配置**
+- `tsconfig.json` — 排除 `src/openclaw-plugin`（其 import 在 OpenClaw 环境中解析）
+
+#### 测试结果
+- 77 单元测试全部通过（未被破坏）
+- `agent-bridge install` — 文件正确复制到 `~/.openclaw/extensions/agent-bridge/`
+- `agent-bridge uninstall` — 目录完整删除
+
+---
+
 ## [0.1.1] - 2026-02-10
 
 ### OpenClaw 适配器协议修复 + 真机验证 ✅
@@ -299,12 +333,10 @@
 
 ### 接下来要做
 
-**Phase 5：OpenClaw Plugin + Skill + CLI Install/Uninstall**
-- 需求文档：`doc/phase5-openclaw-plugin.md`
-- 创建 OpenClaw Plugin（注册 bridge_agents/spawn/message/stop 4 个工具）
-- 创建 Skill（使用指南，随 Plugin 打包）
-- CLI 添加 install/uninstall 子命令
-- 目标：用户 `agent-bridge install` 后，OpenClaw Agent 自动获得跨机器通信能力
+**Phase 5 真机验证**
+- 在 Server A 部署新版 → `agent-bridge install` → 重启 Gateway
+- 通过 Telegram 让 agent 调用 `bridge_agents`
+- 让 agent 调用 `bridge_spawn` 在 Server B 创建 agent
 
 **Phase 6：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon
