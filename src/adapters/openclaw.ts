@@ -236,15 +236,7 @@ export class OpenClawAdapter implements Adapter {
   }
 
   async stopAgent(agentId: string): Promise<void> {
-    // Use sessions.delete with the session key format "agent:<agentId>:<sessionKey>"
-    // First try to find the actual session key from sessions.list
-    const agents = await this.listAgents();
-    const agent = agents.find((a) => a.id === agentId);
-    if (!agent) {
-      throw new Error(`[OpenClaw] Agent ${agentId} not found`);
-    }
-
-    // Try sessions.delete with the agent's session key
+    // Find the session key for this agent from sessions.list
     const raw = await this.rpc('sessions.list');
     const sessions = (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).sessions))
       ? (raw as Record<string, unknown>).sessions as Array<Record<string, unknown>>
@@ -255,11 +247,20 @@ export class OpenClawAdapter implements Adapter {
       return key && key.split(':')[1] === agentId;
     });
 
-    if (session?.key) {
+    if (!session?.key) {
+      throw new Error(`[OpenClaw] Agent ${agentId} not found`);
+    }
+
+    // Try sessions.delete first; if main session is protected, fall back to sessions.reset
+    try {
       await this.rpc('sessions.delete', { key: session.key });
-    } else {
-      // Fallback: try with agentId directly
-      await this.rpc('sessions.delete', { agentId });
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('Cannot delete the main session')) {
+        log.info('OpenClaw', `Main session cannot be deleted, resetting instead: ${session.key}`);
+        await this.rpc('sessions.reset', { key: session.key });
+      } else {
+        throw err;
+      }
     }
   }
 }
