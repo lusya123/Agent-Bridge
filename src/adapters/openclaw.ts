@@ -189,10 +189,17 @@ export class OpenClawAdapter implements Adapter {
   }
 
   async listAgents(): Promise<AgentInfo[]> {
-    const result = await this.rpc('sessions.list') as Array<{
+    const raw = await this.rpc('sessions.list');
+    log.debug('OpenClaw', 'sessions.list raw:', JSON.stringify(raw));
+    // Gateway may return an array directly or wrap it in { sessions: [...] }
+    const result = Array.isArray(raw)
+      ? raw
+      : (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).sessions))
+        ? (raw as Record<string, unknown>).sessions as Array<Record<string, unknown>>
+        : [];
+    return (result as Array<{
       id: string; status?: string; persistent?: boolean; task?: string;
-    }>;
-    return result.map((s) => ({
+    }>).map((s) => ({
       id: s.id,
       type: 'openclaw' as const,
       status: (s.status as AgentInfo['status']) || 'running',
