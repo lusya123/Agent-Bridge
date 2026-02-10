@@ -46,6 +46,17 @@
 | 路由层 | 本机直投 / 远程 HTTP 转发 | Router |
 | 适配器层 | 对接具体框架 | OpenClaw (WebSocket) / Claude Code (tmux) |
 
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [配置参考](doc/configuration.md) | bridge.json / cluster.json 字段详解、环境变量、CLI 参数 |
+| [部署指南](doc/deployment.md) | 单机/多机部署、Tailscale 组网、进程管理、防火墙配置 |
+| [API 参考](doc/api-reference.md) | 6 个端点完整格式、错误码一览、跨机器路由行为 |
+| [故障排查](doc/troubleshooting.md) | 常见问题及解决方案、调试技巧 |
+
+> 内部设计文档在 [doc/design/](doc/design/) 目录下。
+
 ## 快速开始
 
 ### 安装
