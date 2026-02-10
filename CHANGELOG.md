@@ -1,5 +1,50 @@
 # Agent Bridge — Changelog
 
+## [0.2.1] - 2026-02-10
+
+### Phase 5.5: Cross-Machine Spawn + Callback ✅
+
+#### 新增
+
+**SpawnOptions 扩展**（`src/adapters/types.ts`）
+- `session_key` — 为已有 agent 创建独立子会话（避免污染主 session）
+- `create_agent` — 动态创建新 agent 定义（Gateway `agents.create` RPC）
+- `callback` — 回调信息（`caller_agent_id` + `caller_machine`），注入到 task 消息末尾
+
+**OpenClaw 适配器增强**（`src/adapters/openclaw.ts`）
+- `spawnAgent` 重写：支持 `agents.create` → 回调注入 → `sessionKey` 隔离
+- `injectCallback` — 将回调指令作为自然语言追加到 task 消息
+
+**Router 定向转发**（`src/router.ts`）
+- `deliver()` 新增 `targetMachine` 参数
+- 指定目标机器时跳过本地查找，直接 HTTP 转发（解决同名 agent 路由问题）
+- 转发时不含 `machine` 字段（防循环）
+
+**Message API**（`src/api/message.ts`）
+- 请求 body 新增 `machine` 字段，透传到 `router.deliver`
+
+**Plugin 工具升级**（`src/openclaw-plugin/index.ts`）
+- `bridge_spawn` — 新增 `machine`、`session_key`、`create_agent`、`callback` 参数
+  - 默认自动注入回调指令（通过 `/info` 获取本机 machine_id）
+- `bridge_message` — 新增 `machine` 参数（跨机器回调必须指定）
+
+#### 测试结果
+- 86 单元测试全部通过（新增 9 个）
+  - Router: targetMachine 转发、自身回落、防循环、机器不存在、远程错误
+  - Message API: machine 参数透传
+  - Spawn API: session_key / create_agent / callback 透传
+
+#### E2E 验证
+- Server A → Server B `bridge_message` 带 `machine` 参数 ✅
+- Server A → Server B `bridge_spawn` 创建 subagent session ✅
+- Server B → Server A 回调消息 ✅
+
+#### 已知问题
+
+详见 [`doc/open-issues.md`](doc/open-issues.md)
+
+---
+
 ## [0.2.0] - 2026-02-10
 
 ### Phase 5: OpenClaw Plugin + CLI Install/Uninstall ✅
@@ -365,8 +410,14 @@
 
 ### 接下来要做
 
-**Phase 6：Happy 集成 + 人类监控（可选）**
-- 部署 Happy Daemon
-- Bridge CC 适配器改为通过 Happy 管理
-- 手机安装 Happy App
-- 配置审批推送
+详见 [`doc/open-issues.md`](doc/open-issues.md) — 按优先级排列的待解决问题清单。
+
+**近期优先：**
+- P0: Bridge API 认证（公网暴露安全风险）
+- P1: Tailscale 组网（加密 + 用户隔离）
+- P1: 回调可靠性（任务状态追踪）
+
+**后续规划：**
+- P2: 动态集群发现
+- P2: 全局 Agent 视图（`/agents?scope=cluster`）
+- Phase 6: Happy 集成 + 人类监控
