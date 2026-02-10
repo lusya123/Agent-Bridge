@@ -138,6 +138,14 @@ export class OpenClawAdapter implements Adapter {
 
         if (handler.twoPhase && !handler.acked) {
           handler.acked = true;
+          // If the first response is an error, reject immediately
+          if (!res.ok) {
+            this.pending.delete(res.id);
+            handler.reject(new Error(
+              `[OpenClaw] ${res.error?.code || 'ERROR'}: ${res.error?.message || 'Unknown error'}`
+            ));
+            return;
+          }
           log.debug('OpenClaw', `Ack received for RPC ${res.id}`);
           if (handler.resolveOnAck) {
             // For spawn/message: resolve immediately on ack (don't wait for LLM to finish)
