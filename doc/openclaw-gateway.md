@@ -98,11 +98,19 @@ Agent Bridge 通过 WebSocket 连接 Gateway 来管理 OpenClaw Agent。
 2. 然后通过 event 流式输出：`{type: "event", event: "agent", payload: {...}}`
 3. 最后返回 final：`{ok: true, payload: {runId: "...", status: "ok", summary: "..."}}`
 
-#### 3. `sessions.stop` — 停止 Agent
+#### 3. `sessions.delete` / `sessions.reset` — 停止 Agent
 
+删除 session（非 main session）：
 ```json
-{"type": "req", "id": "5", "method": "sessions.stop", "params": {"agentId": "worker-1"}}
+{"type": "req", "id": "5", "method": "sessions.delete", "params": {"key": "agent:worker-1:main"}}
 ```
+
+重置 session（main session 不可删除，用 reset 替代）：
+```json
+{"type": "req", "id": "5", "method": "sessions.reset", "params": {"key": "agent:main:main"}}
+```
+
+**注意**：需要 `operator.admin` scope。session key 格式为 `agent:<agentId>:<sessionKey>`。
 
 ### 错误格式
 
@@ -112,13 +120,12 @@ Agent Bridge 通过 WebSocket 连接 Gateway 来管理 OpenClaw Agent。
 }}
 ```
 
-## 当前适配器问题
+## 适配器实现要点
 
-`src/adapters/openclaw.ts` 的 RPC 实现与真实 Gateway 协议不匹配：
-
-1. **缺少 `type` 字段**：发送 `{id, method, params}` 而非 `{type:"req", id, method, params}`
-2. **缺少连接握手**：没有发送 `connect` 请求 + 认证 token
-3. **响应解析不匹配**：期望 `{id, result, error}` 而非 `{type:"res", id, ok, payload|error}`
-4. **未处理两阶段 agent 响应**：`agent` 方法先返回 ack 再返回 final
-
-这些问题需要在真机测试中修复。
+1. **请求帧格式**：必须包含 `type: "req"` 字段
+2. **连接握手**：WebSocket 连接后必须发 `connect` 请求（含 auth token）
+3. **响应格式**：`{type:"res", id, ok, payload|error}`
+4. **两阶段 agent 响应**：`agent` 方法先 ack 再 final。spawn/message 操作 ack 即可 resolve
+5. **sessions.list 返回格式**：`{sessions:[{key:"agent:main:main",...}]}`，用 `key` 而非 `id`
+6. **停止 Agent**：使用 `sessions.delete`（main session 降级为 `sessions.reset`），需要 `operator.admin` scope
+7. **客户端身份**：`id: 'gateway-client'`, `mode: 'backend'`（Gateway 校验固定集合）

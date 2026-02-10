@@ -278,18 +278,26 @@
 
 ---
 
-### 接下来要做
+### OpenClaw 适配器功能验证 ✅
 
-**OpenClaw 适配器功能验证（进行中）**
 - [x] WebSocket 连接 + 握手 — 两台服务器均通过
 - [x] `GET /agents` — 通过 `sessions.list` RPC 列出 agent — 通过
-- [ ] `POST /spawn` — 通过 Bridge 创建新的 OpenClaw agent
-- [ ] `POST /message` — 通过 Bridge 发消息给 OpenClaw agent
-- [ ] `POST /stop` — 通过 Bridge 停止 OpenClaw agent
-- [ ] 跨机器通信 — 从 Server A 发消息给 Server B 的 OpenClaw agent
+- [x] `POST /spawn` — 通过 Bridge 创建新的 OpenClaw agent — 通过
+- [x] `POST /message` — 通过 Bridge 发消息给 OpenClaw agent — 通过
+- [x] `POST /stop` — 通过 Bridge 停止 OpenClaw agent — 通过（主 session 用 reset，其他用 delete）
+- [x] 跨机器通信 — 从 Server A 发消息给 Server B 的 OpenClaw agent — 通过
+- [x] 远程 spawn — 从 Server A 在 Server B 上创建 OpenClaw agent — 通过
 
-**完成后**
-- merge `deploy/real-machine-test` → `main`
+#### 发现并修复的问题
+
+1. **spawn/message 超时**：`agent` RPC 两阶段响应等待 LLM 完成处理才返回，改为 ack 即 resolve
+2. **agents 列表缺少 id**：`sessions.list` 返回 `key`（如 `agent:main:main`）而非 `id`，从 key 提取 agentId
+3. **stop 方法不存在**：Gateway 没有 `sessions.stop`，改用 `sessions.delete`（主 session 降级为 `sessions.reset`）
+4. **权限不足**：`sessions.delete` 需要 `operator.admin` scope，补充到握手请求
+
+---
+
+### 接下来要做
 
 **Phase 4：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon
