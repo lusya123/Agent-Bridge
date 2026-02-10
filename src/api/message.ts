@@ -14,6 +14,7 @@ export function messageHandler(router: Router) {
       agent_id?: string;
       from?: string;
       message?: string;
+      machine?: string;
     }>();
     log.debug('API', `POST /message agent_id=${body.agent_id}`);
 
@@ -27,7 +28,7 @@ export function messageHandler(router: Router) {
     const from = body.from || 'anonymous';
 
     try {
-      await router.deliver(body.agent_id, from, body.message);
+      await router.deliver(body.agent_id, from, body.message, body.machine);
       return c.json({ ok: true });
     } catch (err) {
       if (err instanceof BridgeError) {

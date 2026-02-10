@@ -45,13 +45,13 @@ const plugin = {
     api.registerTool({
       name: "bridge_spawn",
       description:
-        "在本机或远程机器创建新 Agent。当你需要把任务分配给其他 Agent，或者需要在其他机器上并行处理任务时使用。创建后用 bridge_message 发送指令。",
+        "在本机或远程机器创建新 Agent 或子任务。自动注入回调指令，spawned agent 完成后会把结果发回给你。",
       parameters: {
         type: "object",
         properties: {
           agent_id: {
             type: "string",
-            description: "新 Agent 的唯一 ID，如 worker-1、researcher 等",
+            description: "Agent ID。已有 agent 直接复用（如 main），新 agent 需设 create_agent=true",
           },
           task: {
             type: "string",
@@ -61,10 +61,41 @@ const plugin = {
             type: "string",
             description: "Agent 类型，默认 openclaw",
           },
+          machine: {
+            type: "string",
+            description: "目标机器 ID（如 cloud-b）。不填则在本机创建",
+          },
+          session_key: {
+            type: "string",
+            description: "子会话 key（如 task-123）。为已有 agent 创建独立子会话",
+          },
+          create_agent: {
+            type: "boolean",
+            description: "是否在 Gateway 动态创建新 agent 定义。agent_id 是全新 ID 时设为 true",
+          },
+          callback: {
+            type: "boolean",
+            description: "是否注入回调指令让 spawned agent 完成后自动汇报结果。默认 true",
+          },
         },
         required: ["agent_id", "task"],
       },
       async execute(_id: string, params: Record<string, unknown>) {
+        // Build callback info (default: enabled)
+        let callbackInfo = undefined;
+        if (params.callback !== false) {
+          try {
+            const infoRes = await fetch(`${BRIDGE_ENDPOINT}/info`);
+            const info = (await infoRes.json()) as { machine_id: string };
+            callbackInfo = {
+              caller_agent_id: "main",
+              caller_machine: info.machine_id,
+            };
+          } catch {
+            /* skip callback if /info fails */
+          }
+        }
+
         return bridgeFetch("/spawn", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -72,6 +103,10 @@ const plugin = {
             agent_id: params.agent_id,
             task: params.task,
             type: params.type || "openclaw",
+            machine: params.machine,
+            session_key: params.session_key,
+            create_agent: params.create_agent,
+            callback: callbackInfo,
           }),
         });
       },
@@ -92,6 +127,10 @@ const plugin = {
             type: "string",
             description: "要发送的消息内容",
           },
+          machine: {
+            type: "string",
+            description: "目标机器 ID。指定后直接发到该机器，不走自动路由。回调场景或两台机器有同名 agent 时必须指定",
+          },
         },
         required: ["agent_id", "message"],
       },
@@ -102,6 +141,7 @@ const plugin = {
           body: JSON.stringify({
             agent_id: params.agent_id,
             message: params.message,
+            machine: params.machine,
           }),
         });
       },

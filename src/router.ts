@@ -10,8 +10,43 @@ export class Router {
     private adapters: Adapter[],
   ) {}
 
-  async deliver(agentId: string, from: string, message: string): Promise<void> {
-    log.debug('Router', `Delivering message to ${agentId} from ${from}`);
+  async deliver(agentId: string, from: string, message: string, targetMachine?: string): Promise<void> {
+    log.debug('Router', `Delivering message to ${agentId} from ${from}` +
+      (targetMachine ? ` (target: ${targetMachine})` : ''));
+
+    // If targetMachine is specified and not this machine, forward directly
+    if (targetMachine && targetMachine !== this.config.machine_id) {
+      const machine = this.cluster.machines.find((m) => m.id === targetMachine);
+      if (!machine) {
+        throw new BridgeError({
+          status: 404,
+          errorCode: ErrorCode.MACHINE_NOT_FOUND,
+          message: `Machine "${targetMachine}" not found in cluster`,
+        });
+      }
+      const res = await fetch(`${machine.bridge}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Forward without machine field to prevent loops
+        body: JSON.stringify({ agent_id: agentId, from, message }),
+      });
+      if (!res.ok) {
+        let remoteDetail = `${machine.id}: /message returned ${res.status}`;
+        try {
+          const data = await res.json() as { error_code?: string; error?: string; detail?: string };
+          const pieces = [data.error_code, data.error, data.detail].filter(Boolean);
+          if (pieces.length > 0) remoteDetail = `${remoteDetail} (${pieces.join(' | ')})`;
+        } catch { /* keep status-only detail */ }
+        throw new BridgeError({
+          status: 502,
+          errorCode: ErrorCode.REMOTE_UNREACHABLE,
+          message: `Failed to deliver message to "${agentId}" on ${targetMachine}`,
+          detail: remoteDetail,
+        });
+      }
+      return;
+    }
+
     // try local adapters first
     for (const adapter of this.adapters) {
       if (await adapter.hasAgent(agentId)) {

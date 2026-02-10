@@ -134,4 +134,49 @@ describe('POST /message', () => {
     expect(body.error).toBe('Failed to deliver message');
     expect(body.detail).toBe('bad');
   });
+
+  it('passes machine parameter to router.deliver', async () => {
+    const adapter = createMockAdapter({
+      agents: [
+        { id: 'a1', type: 'openclaw', status: 'running', persistent: false },
+      ],
+    });
+    const config = createBridgeConfig();
+    const cluster = createClusterConfig();
+    const router = new Router(config, cluster, [adapter]);
+    const deliverSpy = vi.spyOn(router, 'deliver');
+    const app = new Hono();
+    app.post('/message', messageHandler(router));
+
+    await postJSON(app, '/message', {
+      agent_id: 'a1',
+      from: 'user',
+      message: 'hello',
+      machine: 'cloud-b',
+    });
+
+    expect(deliverSpy).toHaveBeenCalledWith('a1', 'user', 'hello', 'cloud-b');
+  });
+
+  it('passes undefined machine when not provided', async () => {
+    const adapter = createMockAdapter({
+      agents: [
+        { id: 'a1', type: 'openclaw', status: 'running', persistent: false },
+      ],
+    });
+    const config = createBridgeConfig();
+    const cluster = createClusterConfig();
+    const router = new Router(config, cluster, [adapter]);
+    const deliverSpy = vi.spyOn(router, 'deliver');
+    const app = new Hono();
+    app.post('/message', messageHandler(router));
+
+    await postJSON(app, '/message', {
+      agent_id: 'a1',
+      from: 'user',
+      message: 'hello',
+    });
+
+    expect(deliverSpy).toHaveBeenCalledWith('a1', 'user', 'hello', undefined);
+  });
 });

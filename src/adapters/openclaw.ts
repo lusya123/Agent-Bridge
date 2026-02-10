@@ -236,12 +236,64 @@ export class OpenClawAdapter implements Adapter {
   }
 
   async spawnAgent(options: SpawnOptions): Promise<string> {
-    await this.rpc('agent', {
+    // Step 1: dynamically create agent definition if needed
+    if (options.create_agent) {
+      try {
+        await this.rpc('agents.create', {
+          name: options.agent_id,
+          workspace: '/tmp',
+        });
+        log.info('OpenClaw', `Created new agent: ${options.agent_id}`);
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('already exists')) {
+          log.debug('OpenClaw', `Agent ${options.agent_id} already exists, skipping create`);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    // Step 2: build message (inject callback instructions)
+    let message = options.task;
+    if (options.callback) {
+      message = this.injectCallback(message, options.callback);
+    }
+
+    // Step 3: build RPC params
+    const params: Record<string, unknown> = {
       agentId: options.agent_id,
-      message: options.task,
+      message,
       idempotencyKey: randomUUID(),
-    }, { twoPhase: true, resolveOnAck: true });
+    };
+
+    // sessionKey: use specified key or auto-generate unique key (avoid polluting main session)
+    if (options.session_key) {
+      params.sessionKey = `agent:${options.agent_id}:${options.session_key}`;
+    } else {
+      params.sessionKey = `agent:${options.agent_id}:spawn-${randomUUID().slice(0, 8)}`;
+    }
+
+    await this.rpc('agent', params, { twoPhase: true, resolveOnAck: true });
     return options.agent_id;
+  }
+
+  private injectCallback(
+    task: string,
+    callback: { caller_agent_id: string; caller_machine: string },
+  ): string {
+    return task + [
+      '',
+      '',
+      '---',
+      '## 回调指令（Callback Instructions）',
+      '完成任务后，你**必须**使用 `bridge_message` 工具将结果发回给调用者：',
+      `- agent_id: "${callback.caller_agent_id}"`,
+      `- machine: "${callback.caller_machine}"`,
+      '- message: 你的任务结果摘要',
+      '',
+      '不要跳过回调。调用者正在等待你的结果。',
+      '---',
+    ].join('\n');
   }
 
   async stopAgent(agentId: string): Promise<void> {

@@ -216,4 +216,46 @@ describe('POST /spawn', () => {
     expect(body.error).toBe('Failed to spawn agent');
     expect(body.detail).toBe('spawn boom');
   });
+
+  it('passes session_key, create_agent, and callback to adapter.spawnAgent', async () => {
+    const adapter = createMockAdapter({ type: 'openclaw' });
+    const { app } = buildApp(createBridgeConfig(), createClusterConfig(), [adapter]);
+
+    const res = await postJSON(app, '/spawn', {
+      type: 'openclaw',
+      agent_id: 'worker-1',
+      task: 'research something',
+      session_key: 'task-42',
+      create_agent: true,
+      callback: { caller_agent_id: 'main', caller_machine: 'cloud-a' },
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+
+    const spawnCall = vi.mocked(adapter.spawnAgent!).mock.calls[0][0];
+    expect(spawnCall.session_key).toBe('task-42');
+    expect(spawnCall.create_agent).toBe(true);
+    expect(spawnCall.callback).toEqual({
+      caller_agent_id: 'main',
+      caller_machine: 'cloud-a',
+    });
+  });
+
+  it('passes new fields as undefined when not provided', async () => {
+    const adapter = createMockAdapter({ type: 'openclaw' });
+    const { app } = buildApp(createBridgeConfig(), createClusterConfig(), [adapter]);
+
+    await postJSON(app, '/spawn', {
+      type: 'openclaw',
+      agent_id: 'main',
+      task: 'do stuff',
+    });
+
+    const spawnCall = vi.mocked(adapter.spawnAgent!).mock.calls[0][0];
+    expect(spawnCall.session_key).toBeUndefined();
+    expect(spawnCall.create_agent).toBeUndefined();
+    expect(spawnCall.callback).toBeUndefined();
+  });
 });

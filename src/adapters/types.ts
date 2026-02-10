@@ -14,6 +14,12 @@ export interface SpawnOptions {
   machine?: string;
   persistent?: boolean;
   heartbeat?: Record<string, string>;
+  session_key?: string;
+  create_agent?: boolean;
+  callback?: {
+    caller_agent_id: string;
+    caller_machine: string;
+  };
 }
 
 export interface Adapter {
