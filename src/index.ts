@@ -78,7 +78,11 @@ export async function main() {
   serve({ fetch: app.fetch, port });
 }
 
-main().catch((err) => {
-  log.error('Bridge', 'Fatal:', err);
-  process.exit(1);
-});
+// Only auto-start when run directly (not when imported by cli.ts)
+const isDirectRun = process.argv[1]?.endsWith('/index.js') || process.argv[1]?.endsWith('/index.ts');
+if (isDirectRun) {
+  main().catch((err) => {
+    log.error('Bridge', 'Fatal:', err);
+    process.exit(1);
+  });
+}
