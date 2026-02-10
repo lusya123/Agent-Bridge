@@ -79,19 +79,21 @@ Agent Bridge 通过 WebSocket 连接 Gateway 来管理 OpenClaw Agent。
 
 #### 2. `agent` — 发送消息 / 创建 Agent
 
-发送消息：
+发送消息（idempotencyKey 必填，用于去重）：
 ```json
 {"type": "req", "id": "3", "method": "agent", "params": {
-  "agentId": "ceo", "from": "bridge", "message": "hello"
+  "agentId": "ceo", "message": "hello", "idempotencyKey": "<uuid>"
 }}
 ```
 
-创建新 Agent（newSession: true）：
+创建新 Agent（发消息到新 agentId 即自动创建 session）：
 ```json
 {"type": "req", "id": "4", "method": "agent", "params": {
-  "agentId": "worker-1", "message": "do task X", "newSession": true
+  "agentId": "worker-1", "message": "do task X", "idempotencyKey": "<uuid>"
 }}
 ```
+
+**注意**：`from` 和 `newSession` 不是合法参数（additionalProperties: false），客户端身份通过 connect 握手获得。
 
 **注意**：`agent` 方法是两阶段响应：
 1. 先返回 ack：`{ok: true, payload: {runId: "...", status: "accepted"}}`

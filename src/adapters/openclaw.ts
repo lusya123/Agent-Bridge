@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import WebSocket from 'ws';
 import type { Adapter, AgentInfo, SpawnOptions } from './types.js';
 import { log } from '../logger.js';
@@ -192,8 +193,8 @@ export class OpenClawAdapter implements Adapter {
     });
   }
 
-  async sendMessage(agentId: string, from: string, message: string): Promise<void> {
-    await this.rpc('agent', { agentId, from, message }, { twoPhase: true, resolveOnAck: true });
+  async sendMessage(agentId: string, _from: string, message: string): Promise<void> {
+    await this.rpc('agent', { agentId, message, idempotencyKey: randomUUID() }, { twoPhase: true, resolveOnAck: true });
   }
 
   async listAgents(): Promise<AgentInfo[]> {
@@ -230,7 +231,7 @@ export class OpenClawAdapter implements Adapter {
     await this.rpc('agent', {
       agentId: options.agent_id,
       message: options.task,
-      newSession: true,
+      idempotencyKey: randomUUID(),
     }, { twoPhase: true, resolveOnAck: true });
     return options.agent_id;
   }
