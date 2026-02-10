@@ -45,6 +45,13 @@
 - `npm run build` — TypeScript 编译
 - `npm test` — 运行测试（vitest）
 
+## OpenClaw Plugin（Phase 5 — 进行中）
+
+- 需求文档：`doc/phase5-openclaw-plugin.md`
+- OpenClaw 源码参考：`/Users/xuehongyu/Downloads/openclaw-main 3`
+- Plugin 源码：`src/openclaw-plugin/`（install 时复制到 `~/.openclaw/extensions/agent-bridge/`）
+- Plugin 参考示例：OpenClaw 的 `extensions/memory-core/`（最简单）和 `extensions/lobster/`（含 Skill）
+
 ## 核心设计原则
 
 - **AI-native**：智能在 LLM，基础设施只传消息

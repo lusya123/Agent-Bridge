@@ -299,7 +299,14 @@
 
 ### 接下来要做
 
-**Phase 4：Happy 集成 + 人类监控（可选）**
+**Phase 5：OpenClaw Plugin + Skill + CLI Install/Uninstall**
+- 需求文档：`doc/phase5-openclaw-plugin.md`
+- 创建 OpenClaw Plugin（注册 bridge_agents/spawn/message/stop 4 个工具）
+- 创建 Skill（使用指南，随 Plugin 打包）
+- CLI 添加 install/uninstall 子命令
+- 目标：用户 `agent-bridge install` 后，OpenClaw Agent 自动获得跨机器通信能力
+
+**Phase 6：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon
 - Bridge CC 适配器改为通过 Happy 管理
 - 手机安装 Happy App
