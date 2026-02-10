@@ -14,11 +14,11 @@ export interface PersistentAgent {
 export interface BridgeConfig {
   machine_id: string;
   port: number;
-  capabilities: ('openclaw' | 'claude-code')[];
+  capabilities: ('openclaw' | 'claude-code' | 'test')[];
   max_agents: number;
   persistent_agents: PersistentAgent[];
   adapters: {
-    openclaw?: { gateway: string };
+    openclaw?: { gateway: string; token: string };
     claude_code?: { tmux_session: string; happy_daemon?: string };
   };
 }

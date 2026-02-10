@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+config/bridge.json
+config/cluster.json
+data/

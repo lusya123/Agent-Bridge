@@ -13,6 +13,7 @@ import { locateHandler } from './api/locate.js';
 import { messageHandler } from './api/message.js';
 import { spawnHandler } from './api/spawn.js';
 import { stopHandler } from './api/stop.js';
+import { testMessagesHandler } from './api/test-messages.js';
 import { log } from './logger.js';
 
 export async function main() {
@@ -21,7 +22,7 @@ export async function main() {
 
   // initialize OpenClaw adapter
   if (config.capabilities.includes('openclaw') && config.adapters.openclaw) {
-    const oc = new OpenClawAdapter(config.adapters.openclaw.gateway);
+    const oc = new OpenClawAdapter(config.adapters.openclaw.gateway, config.adapters.openclaw.token);
     try {
       await oc.connect();
       adapters.push(oc);
@@ -43,6 +44,14 @@ export async function main() {
     }
   }
 
+  // initialize Test adapter (for integration testing without real services)
+  if (config.capabilities.includes('test')) {
+    const { TestAdapter } = await import('./adapters/test.js');
+    const ta = new TestAdapter();
+    await ta.connect();
+    adapters.push(ta);
+  }
+
   const router = new Router(config, cluster, adapters);
   const heartbeat = new HeartbeatManager();
   heartbeat.load(resolve('data/heartbeats.json'));
@@ -56,6 +65,7 @@ export async function main() {
   app.post('/message', messageHandler(router));
   app.post('/spawn', spawnHandler(config, cluster, adapters, heartbeat));
   app.post('/stop', stopHandler(adapters, heartbeat));
+  app.get('/test/messages', testMessagesHandler(adapters));
 
   const port = config.port;
   log.info('Bridge', `Starting on :${port}`);

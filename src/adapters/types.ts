@@ -8,7 +8,7 @@ export interface AgentInfo {
 }
 
 export interface SpawnOptions {
-  type: 'openclaw' | 'claude-code';
+  type: 'openclaw' | 'claude-code' | 'generic';
   agent_id: string;
   task: string;
   machine?: string;

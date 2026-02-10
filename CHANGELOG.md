@@ -1,5 +1,28 @@
 # Agent Bridge — Changelog
 
+## [0.1.1] - 2026-02-10
+
+### OpenClaw 适配器协议修复 + 真机验证 ✅
+
+#### 问题
+`src/adapters/openclaw.ts` 的 RPC 实现与真实 OpenClaw Gateway 协议不匹配，导致无法连接。
+
+#### 修复内容
+- **请求帧格式**：添加 `type: "req"` 字段
+- **连接握手**：WebSocket 连接后发送 `connect` 请求（含 auth token、协议版本、客户端身份）
+- **客户端身份**：使用 Gateway 认可的 `id: 'gateway-client'` + `mode: 'backend'`
+- **响应解析**：适配 `{type:"res", id, ok, payload|error}` 格式
+- **两阶段响应**：`agent` 方法先 ack 再 final，避免超时
+- **事件消息**：识别并忽略 `{type:"event"}` 帧
+- **sessions.list 解析**：处理 `{sessions:[...]}` 包裹格式（非直接数组）
+- **配置扩展**：`adapters.openclaw` 增加 `token` 字段
+
+#### 真机验证结果
+- Server A (cloud-a: 43.134.124.4) — Handshake successful, 1 OpenClaw agent running
+- Server B (cloud-b: 150.109.16.237) — Handshake successful, 1 OpenClaw agent running
+- `/info`、`/agents` API 端点正常返回 OpenClaw agent 信息
+- 77 单元测试全部通过
+
 ## [0.1.0] - 2026-02-09
 
 ### Phase 1：基础搭建 ✅
@@ -172,13 +195,109 @@
 
 ---
 
-### 接下来要做
+### 标准化错误响应 ✅
 
-**部署验证**
-- 部署到云服务器验证跨机器通信
-- 验证 OpenClaw 适配器连接 Gateway
-- 验证 CC 适配器 tmux 管理
-- 验证心跳调度实际触发
+#### 已完成
+
+**错误码体系**
+- `src/errors.ts` — 统一错误码枚举 + BridgeError 类 + errorResponse 工厂函数
+  - `MISSING_FIELDS` / `AGENT_NOT_FOUND` / `NO_ADAPTER` / `SPAWN_FAILED`
+  - `MACHINE_NOT_FOUND` / `REMOTE_UNREACHABLE` / `STOP_NOT_SUPPORTED` / `STOP_FAILED`
+- 所有 6 个 API 端点统一返回 `{ error_code, error, detail? }` 格式
+- 远程转发错误保留原始 error_code + detail
+
+**单元测试（10 new tests, 77 total, 12 files, all passed）**
+- 新增边界用例覆盖：远程错误解析、非 JSON 响应处理、消息投递 fallback 分类
+
+---
+
+### 真机部署验证 ✅
+
+#### 分支：`deploy/real-machine-test`
+
+**测试环境**
+- Server A (cloud-a): `43.134.124.4` — OpenCloudOS 9.4, Node.js 18.20.8
+- Server B (cloud-b): `150.109.16.237` — Ubuntu 22.04, Node.js 22.22.0
+
+**新增代码**
+- `src/adapters/test.ts` — 内存测试适配器（TestAdapter）
+  - 实现完整 Adapter 接口，用 Map 存储 agents 和 messages
+  - 额外暴露 `getMessages(agentId)` 方法用于集成测试验证
+- `src/api/test-messages.ts` — 诊断端点 `GET /test/messages?agent_id=xxx`
+- `src/index.ts` — 新增 `test` capability 支持 + 注册诊断端点
+- `src/config.ts` — capabilities 类型扩展支持 `'test'`
+- `src/adapters/types.ts` — SpawnOptions.type 扩展支持 `'generic'`
+
+**配置模板**
+- `config/bridge.cloud-a.json` — Server A 配置（machine_id: cloud-a）
+- `config/bridge.cloud-b.json` — Server B 配置（machine_id: cloud-b）
+- `config/cluster.deploy-test.json` — 集群配置（两台公网 IP）
+
+**自动化集成测试**
+- `scripts/integration-test.sh` — 用 curl + jq 编写的端到端测试脚本
+
+#### 测试过程
+
+1. **环境搭建**：两台服务器安装 Node.js、git、jq、screen，开放 OS 防火墙 + 云安全组 9100 端口
+2. **代码部署**：git clone → checkout 分支 → npm install → npm run build
+3. **单元测试**：两台服务器各 77 个测试全部通过
+4. **服务启动**：screen -dmS 后台运行 Bridge，LOG_LEVEL=debug
+5. **集成测试**：从 Server A 运行 integration-test.sh
+
+#### 测试结果
+
+**单元测试：77 passed（两台服务器均通过）**
+
+**集成测试：17 passed, 0 failed**
+
+| 测试项 | 结果 |
+|--------|------|
+| Server A /info 可达 | ✅ |
+| Server B /info 可达 | ✅ |
+| Server B 本地 spawn | ✅ |
+| Server A 本地 spawn | ✅ |
+| 跨机器 locate（A 定位 B 上的 agent） | ✅ |
+| 跨机器消息投递（A → B） | ✅ |
+| 消息到达验证（内容 + 发送者） | ✅ |
+| 双向通信（B → A） | ✅ |
+| 远程 spawn 转发（A 在 B 上创建 agent） | ✅ |
+| Agent 停止 + 移除验证 | ✅ |
+
+**心跳测试：通过**
+- spawn 带 `* * * * *` cron 的 agent
+- 等待 65 秒后检查，收到 2 条心跳消息（精确到分钟触发）
+- 停止 agent 后 schedule 被正确移除
+
+#### 发现的问题
+
+1. **云安全组未开放端口**（已解决）：OS 防火墙（firewalld/ufw）和云厂商安全组是两层独立的防火墙，都需要开放 9100 端口
+2. **SSH 远程执行复杂 JSON 命令引号嵌套**（已绕过）：使用 base64 编码传递 JSON payload
+3. **nohup 通过 SSH 启动后台进程不可靠**（已绕过）：改用 screen -dmS
+
+**代码 bug：未发现** — 所有功能在真实网络环境下表现与单元测试一致
+
+---
+
+### OpenClaw 适配器功能验证 ✅
+
+- [x] WebSocket 连接 + 握手 — 两台服务器均通过
+- [x] `GET /agents` — 通过 `sessions.list` RPC 列出 agent — 通过
+- [x] `POST /spawn` — 通过 Bridge 创建新的 OpenClaw agent — 通过
+- [x] `POST /message` — 通过 Bridge 发消息给 OpenClaw agent — 通过
+- [x] `POST /stop` — 通过 Bridge 停止 OpenClaw agent — 通过（主 session 用 reset，其他用 delete）
+- [x] 跨机器通信 — 从 Server A 发消息给 Server B 的 OpenClaw agent — 通过
+- [x] 远程 spawn — 从 Server A 在 Server B 上创建 OpenClaw agent — 通过
+
+#### 发现并修复的问题
+
+1. **spawn/message 超时**：`agent` RPC 两阶段响应等待 LLM 完成处理才返回，改为 ack 即 resolve
+2. **agents 列表缺少 id**：`sessions.list` 返回 `key`（如 `agent:main:main`）而非 `id`，从 key 提取 agentId
+3. **stop 方法不存在**：Gateway 没有 `sessions.stop`，改用 `sessions.delete`（主 session 降级为 `sessions.reset`）
+4. **权限不足**：`sessions.delete` 需要 `operator.admin` scope，补充到握手请求
+
+---
+
+### 接下来要做
 
 **Phase 4：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon

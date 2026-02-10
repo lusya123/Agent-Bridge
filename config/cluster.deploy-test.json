@@ -1,0 +1,6 @@
+{
+  "machines": [
+    { "id": "cloud-a", "bridge": "http://43.134.124.4:9100", "role": "Server A" },
+    { "id": "cloud-b", "bridge": "http://150.109.16.237:9100", "role": "Server B" }
+  ]
+}

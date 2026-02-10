@@ -1,7 +1,0 @@
-{
-  "machines": [
-    { "id": "cloud-a", "bridge": "http://100.64.0.2:9100", "role": "CEO + 调度中心" },
-    { "id": "cloud-b", "bridge": "http://100.64.0.3:9100", "role": "采集 + 分析" },
-    { "id": "local-mac", "bridge": "http://100.64.0.1:9100", "role": "本地开发 + 创作" }
-  ]
-}
