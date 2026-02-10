@@ -331,12 +331,39 @@
 
 ---
 
-### 接下来要做
+### Phase 5 真机验证 ✅
 
-**Phase 5 真机验证**
-- 在 Server A 部署新版 → `agent-bridge install` → 重启 Gateway
-- 通过 Telegram 让 agent 调用 `bridge_agents`
-- 让 agent 调用 `bridge_spawn` 在 Server B 创建 agent
+#### 部署
+
+- Server A (cloud-a: 43.134.124.4) + Server B (cloud-b: 150.109.16.237)
+- `git pull && npm run build && node dist/cli.js install` — 两台均成功
+- Plugin 安装到 `~/.openclaw/extensions/agent-bridge/`
+- Gateway 重启后自动发现并加载 Plugin（无需手动配置 openclaw.json）
+
+#### 修复的问题
+
+1. **Plugin package.json name 不匹配**：Gateway 校验 manifest id 与 package name 一致，改为 `"agent-bridge"`
+2. **双重 main() 调用（EADDRINUSE）**：cli.ts import index.ts 时模块级 `main()` 自动执行，添加 `isDirectRun` 守卫
+3. **@sinclair/typebox 不可用**：Plugin 在 `~/.openclaw/extensions/` 目录下无法解析 OpenClaw 内部依赖，改用原生 JSON Schema 对象
+4. **agent RPC 参数错误**：Gateway 要求 `idempotencyKey`（必填）且不接受 `from`/`newSession`（additionalProperties: false），更新 sendMessage 和 spawnAgent
+5. **两阶段响应错误未传播**：`resolveOnAck` 模式下错误响应被误当作 ack 成功处理，添加 `res.ok` 检查
+
+#### E2E 测试结果
+
+| 测试 | 结果 | 说明 |
+|------|------|------|
+| Plugin 自动加载 | ✅ | Gateway 从 ~/.openclaw/extensions/ 自动发现，无需 config |
+| bridge_agents 工具调用 | ✅ | Agent 收到消息后调用 bridge_agents，返回 Agent 列表 |
+| bridge_message 工具调用 | ✅ | Agent 调用 bridge_message 发送消息，Bridge 成功投递 |
+| Bridge API 端点 | ✅ | /info, /agents, /locate 在两台服务器均正常 |
+| agent RPC（sendMessage） | ✅ | idempotencyKey 修复后 Gateway 正常接受 |
+| 跨机器路由 | ✅ | 已在 Phase 3 验证，Plugin 通过 fetch Bridge API 复用此能力 |
+
+**注意**：`bridge_spawn` 创建任意 agentId 受 Gateway 限制（`unknown agent id`），OpenClaw 的 agent 需预配置。实际使用中应 spawn 到已配置的 agent 或使用消息触发子任务。
+
+---
+
+### 接下来要做
 
 **Phase 6：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon
