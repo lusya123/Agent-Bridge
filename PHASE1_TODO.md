@@ -126,12 +126,14 @@
 
 ## TODO 10：本机通信验证
 
-- [ ] 在 CEO 所在机器部署 Bridge
-  - 复制 bridge.example.json → bridge.json，填入实际配置
-  - `npm run dev` 启动服务
-- [ ] 验证 `GET /info` — 返回正确的机器信息
-- [ ] 验证 `GET /agents` — 返回 OpenClaw Gateway 中的 Agent 列表
-- [ ] 验证 `POST /message` — 消息成功投递给本机 OpenClaw Agent
+- [x] 在 CEO 所在机器部署 Bridge
+  - 两台服务器均已部署，screen 后台运行
+- [x] 验证 `GET /info` — 返回正确的机器信息（含 openclaw capability）
+- [x] 验证 `GET /agents` — 返回 OpenClaw Gateway 中的 Agent 列表（sessions.list RPC 通过）
+- [ ] 验证 `POST /message` — 消息成功投递给本机 OpenClaw Agent（两阶段响应未真机验证）
+- [ ] 验证 `POST /spawn` — 通过 Bridge 创建新 OpenClaw Agent
+- [ ] 验证 `POST /stop` — 通过 Bridge 停止 OpenClaw Agent
+- [ ] 验证跨机器通信 — Server A → Server B OpenClaw Agent
 - [ ] 验证 CEO Agent 能通过 curl 调用 Bridge API
   - CEO 执行 `curl http://127.0.0.1:9100/agents` 查看 Agent 列表
   - CEO 执行 `curl -X POST http://127.0.0.1:9100/message` 发消息

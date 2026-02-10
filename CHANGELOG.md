@@ -280,9 +280,16 @@
 
 ### 接下来要做
 
-**适配器真机验证（未完成）**
-- 验证 OpenClaw 适配器连接 Gateway（需部署 OpenClaw Gateway）
-- 验证 CC 适配器 tmux 管理（需安装 Claude Code）
+**OpenClaw 适配器功能验证（进行中）**
+- [x] WebSocket 连接 + 握手 — 两台服务器均通过
+- [x] `GET /agents` — 通过 `sessions.list` RPC 列出 agent — 通过
+- [ ] `POST /spawn` — 通过 Bridge 创建新的 OpenClaw agent
+- [ ] `POST /message` — 通过 Bridge 发消息给 OpenClaw agent
+- [ ] `POST /stop` — 通过 Bridge 停止 OpenClaw agent
+- [ ] 跨机器通信 — 从 Server A 发消息给 Server B 的 OpenClaw agent
+
+**完成后**
+- merge `deploy/real-machine-test` → `main`
 
 **Phase 4：Happy 集成 + 人类监控（可选）**
 - 部署 Happy Daemon
