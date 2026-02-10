@@ -22,7 +22,7 @@ export async function main() {
 
   // initialize OpenClaw adapter
   if (config.capabilities.includes('openclaw') && config.adapters.openclaw) {
-    const oc = new OpenClawAdapter(config.adapters.openclaw.gateway);
+    const oc = new OpenClawAdapter(config.adapters.openclaw.gateway, config.adapters.openclaw.token);
     try {
       await oc.connect();
       adapters.push(oc);

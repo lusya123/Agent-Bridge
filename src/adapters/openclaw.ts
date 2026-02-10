@@ -3,43 +3,64 @@ import type { Adapter, AgentInfo, SpawnOptions } from './types.js';
 import { log } from '../logger.js';
 
 interface RPCRequest {
-  id: number;
+  type: 'req';
+  id: string;
   method: string;
   params: Record<string, unknown>;
 }
 
 interface RPCResponse {
-  id: number;
-  result?: unknown;
-  error?: { message: string };
+  type: 'res';
+  id: string;
+  ok: boolean;
+  payload?: unknown;
+  error?: { code: string; message: string; retryable?: boolean };
 }
+
+interface RPCEvent {
+  type: 'event';
+  event: string;
+  payload: unknown;
+}
+
+type GatewayMessage = RPCResponse | RPCEvent;
 
 export class OpenClawAdapter implements Adapter {
   readonly type = 'openclaw' as const;
 
   private ws: WebSocket | null = null;
   private gateway: string;
+  private token: string;
   private rpcId = 0;
-  private pending = new Map<number, {
+  private pending = new Map<string, {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
+    twoPhase?: boolean;
+    acked?: boolean;
   }>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
 
-  constructor(gateway: string) {
+  constructor(gateway: string, token: string) {
     this.gateway = gateway;
+    this.token = token;
   }
 
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(this.gateway);
 
-      this.ws.on('open', () => {
-        log.info('OpenClaw', `Connected to ${this.gateway}`);
+      this.ws.on('open', async () => {
+        log.info('OpenClaw', `WebSocket connected to ${this.gateway}`);
         this.reconnectDelay = 1000;
-        resolve();
+        try {
+          await this.handshake();
+          log.info('OpenClaw', 'Handshake successful');
+          resolve();
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
       });
 
       this.ws.on('message', (data) => {
@@ -66,6 +87,26 @@ export class OpenClawAdapter implements Adapter {
     this.ws = null;
   }
 
+  private async handshake(): Promise<void> {
+    const result = await this.rpc('connect', {
+      minProtocol: 3,
+      maxProtocol: 3,
+      client: {
+        id: 'agent-bridge',
+        version: '0.1.0',
+        platform: process.platform,
+        mode: 'operator',
+      },
+      role: 'operator',
+      scopes: ['operator.read', 'operator.write'],
+      caps: [],
+      commands: [],
+      permissions: {},
+      auth: { token: this.token },
+    });
+    log.debug('OpenClaw', 'Handshake response:', JSON.stringify(result));
+  }
+
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(async () => {
@@ -81,41 +122,70 @@ export class OpenClawAdapter implements Adapter {
 
   private handleMessage(raw: string): void {
     try {
-      const msg = JSON.parse(raw) as RPCResponse;
-      const handler = this.pending.get(msg.id);
-      if (!handler) return;
-      this.pending.delete(msg.id);
-      if (msg.error) {
-        handler.reject(new Error(msg.error.message));
-      } else {
-        handler.resolve(msg.result);
+      const msg = JSON.parse(raw) as GatewayMessage;
+
+      if (msg.type === 'event') {
+        log.debug('OpenClaw', `Event: ${(msg as RPCEvent).event}`);
+        return;
+      }
+
+      if (msg.type === 'res') {
+        const res = msg as RPCResponse;
+        const handler = this.pending.get(res.id);
+        if (!handler) return;
+
+        if (handler.twoPhase && !handler.acked) {
+          // First response is the ack — keep waiting for final
+          handler.acked = true;
+          log.debug('OpenClaw', `Ack received for RPC ${res.id}`);
+          return;
+        }
+
+        this.pending.delete(res.id);
+        if (!res.ok) {
+          handler.reject(new Error(
+            `[OpenClaw] ${res.error?.code || 'ERROR'}: ${res.error?.message || 'Unknown error'}`
+          ));
+        } else {
+          handler.resolve(res.payload);
+        }
       }
     } catch {
       // ignore non-JSON messages
     }
   }
 
-  private rpc(method: string, params: Record<string, unknown> = {}, timeout = 10000): Promise<unknown> {
+  private rpc(
+    method: string,
+    params: Record<string, unknown> = {},
+    options: { timeout?: number; twoPhase?: boolean } = {},
+  ): Promise<unknown> {
+    const { timeout = 10000, twoPhase = false } = options;
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         return reject(new Error('[OpenClaw] Not connected'));
       }
-      const id = ++this.rpcId;
-      const req: RPCRequest = { id, method, params };
+      const id = String(++this.rpcId);
+      const req: RPCRequest = { type: 'req', id, method, params };
+
+      const effectiveTimeout = twoPhase ? Math.max(timeout, 120000) : timeout;
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`[OpenClaw] RPC timeout: ${method}`));
-      }, timeout);
+      }, effectiveTimeout);
+
       this.pending.set(id, {
         resolve: (val) => { clearTimeout(timer); resolve(val); },
         reject: (err) => { clearTimeout(timer); reject(err); },
+        twoPhase,
+        acked: false,
       });
       this.ws.send(JSON.stringify(req));
     });
   }
 
   async sendMessage(agentId: string, from: string, message: string): Promise<void> {
-    await this.rpc('agent', { agentId, from, message });
+    await this.rpc('agent', { agentId, from, message }, { twoPhase: true });
   }
 
   async listAgents(): Promise<AgentInfo[]> {
@@ -141,7 +211,7 @@ export class OpenClawAdapter implements Adapter {
       agentId: options.agent_id,
       message: options.task,
       newSession: true,
-    });
+    }, { twoPhase: true });
     return options.agent_id;
   }
 
