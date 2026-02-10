@@ -236,6 +236,30 @@ export class OpenClawAdapter implements Adapter {
   }
 
   async stopAgent(agentId: string): Promise<void> {
-    await this.rpc('sessions.stop', { agentId });
+    // Use sessions.delete with the session key format "agent:<agentId>:<sessionKey>"
+    // First try to find the actual session key from sessions.list
+    const agents = await this.listAgents();
+    const agent = agents.find((a) => a.id === agentId);
+    if (!agent) {
+      throw new Error(`[OpenClaw] Agent ${agentId} not found`);
+    }
+
+    // Try sessions.delete with the agent's session key
+    const raw = await this.rpc('sessions.list');
+    const sessions = (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).sessions))
+      ? (raw as Record<string, unknown>).sessions as Array<Record<string, unknown>>
+      : Array.isArray(raw) ? raw as Array<Record<string, unknown>> : [];
+
+    const session = sessions.find((s) => {
+      const key = s.key as string | undefined;
+      return key && key.split(':')[1] === agentId;
+    });
+
+    if (session?.key) {
+      await this.rpc('sessions.delete', { key: session.key });
+    } else {
+      // Fallback: try with agentId directly
+      await this.rpc('sessions.delete', { agentId });
+    }
   }
 }
