@@ -36,6 +36,7 @@ export class OpenClawAdapter implements Adapter {
     resolve: (value: unknown) => void;
     reject: (reason: Error) => void;
     twoPhase?: boolean;
+    resolveOnAck?: boolean;
     acked?: boolean;
   }>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -135,9 +136,15 @@ export class OpenClawAdapter implements Adapter {
         if (!handler) return;
 
         if (handler.twoPhase && !handler.acked) {
-          // First response is the ack — keep waiting for final
           handler.acked = true;
           log.debug('OpenClaw', `Ack received for RPC ${res.id}`);
+          if (handler.resolveOnAck) {
+            // For spawn/message: resolve immediately on ack (don't wait for LLM to finish)
+            this.pending.delete(res.id);
+            handler.resolve(res.payload);
+            return;
+          }
+          // Otherwise keep waiting for final response
           return;
         }
 
@@ -158,9 +165,9 @@ export class OpenClawAdapter implements Adapter {
   private rpc(
     method: string,
     params: Record<string, unknown> = {},
-    options: { timeout?: number; twoPhase?: boolean } = {},
+    options: { timeout?: number; twoPhase?: boolean; resolveOnAck?: boolean } = {},
   ): Promise<unknown> {
-    const { timeout = 10000, twoPhase = false } = options;
+    const { timeout = 10000, twoPhase = false, resolveOnAck = false } = options;
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         return reject(new Error('[OpenClaw] Not connected'));
@@ -178,6 +185,7 @@ export class OpenClawAdapter implements Adapter {
         resolve: (val) => { clearTimeout(timer); resolve(val); },
         reject: (err) => { clearTimeout(timer); reject(err); },
         twoPhase,
+        resolveOnAck,
         acked: false,
       });
       this.ws.send(JSON.stringify(req));
@@ -185,7 +193,7 @@ export class OpenClawAdapter implements Adapter {
   }
 
   async sendMessage(agentId: string, from: string, message: string): Promise<void> {
-    await this.rpc('agent', { agentId, from, message }, { twoPhase: true });
+    await this.rpc('agent', { agentId, from, message }, { twoPhase: true, resolveOnAck: true });
   }
 
   async listAgents(): Promise<AgentInfo[]> {
@@ -198,14 +206,19 @@ export class OpenClawAdapter implements Adapter {
         ? (raw as Record<string, unknown>).sessions as Array<Record<string, unknown>>
         : [];
     return (result as Array<{
-      id: string; status?: string; persistent?: boolean; task?: string;
-    }>).map((s) => ({
-      id: s.id,
-      type: 'openclaw' as const,
-      status: (s.status as AgentInfo['status']) || 'running',
-      persistent: s.persistent ?? true,
-      task: s.task,
-    }));
+      key?: string; id?: string; status?: string; persistent?: boolean; task?: string;
+      displayName?: string;
+    }>).map((s) => {
+      // Extract agent id from key format "agent:<agentId>:<sessionKey>" or fall back to id
+      const id = s.id || (s.key ? s.key.split(':')[1] || s.key : 'unknown');
+      return {
+        id,
+        type: 'openclaw' as const,
+        status: (s.status as AgentInfo['status']) || 'running',
+        persistent: s.persistent ?? true,
+        task: s.task || s.displayName,
+      };
+    });
   }
 
   async hasAgent(agentId: string): Promise<boolean> {
@@ -218,7 +231,7 @@ export class OpenClawAdapter implements Adapter {
       agentId: options.agent_id,
       message: options.task,
       newSession: true,
-    }, { twoPhase: true });
+    }, { twoPhase: true, resolveOnAck: true });
     return options.agent_id;
   }
 
