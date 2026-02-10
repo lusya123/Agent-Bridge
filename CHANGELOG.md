@@ -1,5 +1,28 @@
 # Agent Bridge — Changelog
 
+## [0.1.1] - 2026-02-10
+
+### OpenClaw 适配器协议修复 + 真机验证 ✅
+
+#### 问题
+`src/adapters/openclaw.ts` 的 RPC 实现与真实 OpenClaw Gateway 协议不匹配，导致无法连接。
+
+#### 修复内容
+- **请求帧格式**：添加 `type: "req"` 字段
+- **连接握手**：WebSocket 连接后发送 `connect` 请求（含 auth token、协议版本、客户端身份）
+- **客户端身份**：使用 Gateway 认可的 `id: 'gateway-client'` + `mode: 'backend'`
+- **响应解析**：适配 `{type:"res", id, ok, payload|error}` 格式
+- **两阶段响应**：`agent` 方法先 ack 再 final，避免超时
+- **事件消息**：识别并忽略 `{type:"event"}` 帧
+- **sessions.list 解析**：处理 `{sessions:[...]}` 包裹格式（非直接数组）
+- **配置扩展**：`adapters.openclaw` 增加 `token` 字段
+
+#### 真机验证结果
+- Server A (cloud-a: 43.134.124.4) — Handshake successful, 1 OpenClaw agent running
+- Server B (cloud-b: 150.109.16.237) — Handshake successful, 1 OpenClaw agent running
+- `/info`、`/agents` API 端点正常返回 OpenClaw agent 信息
+- 77 单元测试全部通过
+
 ## [0.1.0] - 2026-02-09
 
 ### Phase 1：基础搭建 ✅
