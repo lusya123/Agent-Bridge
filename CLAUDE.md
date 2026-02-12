@@ -13,7 +13,7 @@
 - 分布式：每台机器运行一个 Bridge 实例（:9100）
 - 三层：HTTP API → 路由层（本机/远程转发）→ 适配器层
 - 适配器：OpenClaw（WebSocket）、Claude Code（tmux）、通用（预留）
-- 网络：Tailscale 组网，机器间直连
+- 网络：Token 组网（Hub/Edge 混合拓扑），详见 Phase 6 设计
 
 ## 技术栈
 
@@ -56,6 +56,7 @@
 - `doc/README.md` — 文档索引（用户文档、设计文档、项目管理）
 - `doc/open-issues.md` — 待解决问题清单（安全、集群、可靠性等）
 - `doc/design/Agent-Bridge-完整技术方案.md` — 完整技术方案
+- `doc/design/cluster-networking.md` — Phase 6 集群组网方案（Token + Hub Relay）
 - `CHANGELOG.md` — 进度记录
 - `doc/archive/` — 已完成的需求文档归档
 
@@ -65,3 +66,10 @@
 - **不修改任何框架源码**：通过外部接口对接（WebSocket / tmux）
 - **不过度工程化**：用最少代码解决问题（~320 行）
 - **弱模型也能用**：Agent 只需 curl 即可通信
+
+## 当前状态
+
+- Phase 1 ~ 5.5 全部完成（86 unit tests, all passed）
+- Phase 6（集群组网）设计完成，待实现
+- 设计文档：`doc/design/cluster-networking.md`
+- 实现分三个子阶段：6a（认证+集群基础）→ 6b（WebSocket中继+Edge节点）→ 6c（增强）

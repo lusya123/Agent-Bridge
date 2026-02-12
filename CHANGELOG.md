@@ -1,5 +1,35 @@
 # Agent Bridge — Changelog
 
+## [Unreleased] — Phase 6: 集群组网（Token + Hub Relay）
+
+### 设计完成（2026-02-12）
+
+详细设计文档：[`doc/design/cluster-networking.md`](doc/design/cluster-networking.md)
+
+#### 核心方案
+
+- **Token 组网**：第一台机器自动生成 Token（`<128位随机密钥>@<hub地址>`），其他机器粘贴 Token 即可加入集群
+- **Hub/Edge 混合拓扑**：有公网 IP 的机器为 Hub（HTTP 直连），无公网 IP 的机器为 Edge（WebSocket 长连接到 Hub）
+- **一个 Token 解决三个问题**：API 认证 + 集群归属 + 用户隔离
+- **动态集群发现**：替换静态 `cluster.json`，机器加入/离开自动广播
+- **多 Hub 自动容灾**：Edge 节点从 welcome 响应获取所有 Hub 地址，断线自动切换
+
+#### 实现计划
+
+- Phase 6a：认证 + 集群基础（Token、认证中间件、ClusterManager、Hub→Hub 注册）
+- Phase 6b：WebSocket 中继 + Edge 节点（WS 服务端/客户端、消息中继、多 Hub 容灾）
+- Phase 6c：增强（全局 Agent 视图、节点广播、E2E 验证）
+
+#### 解决的问题
+
+- P0: API 无认证 → Token 中的 secret 作为 Bearer Token
+- P0: 不支持 NAT 穿透 → Edge 节点通过 WebSocket 连接 Hub
+- P1: 机器间明文通信 → Hub 间可升级 HTTPS
+- P1: 集群配置是静态的 → 动态发现替换 cluster.json
+- P1: 无用户隔离 → 不同 Token 的集群互不可见
+
+---
+
 ## [0.2.1] - 2026-02-10
 
 ### Phase 5.5: Cross-Machine Spawn + Callback ✅
@@ -410,14 +440,10 @@
 
 ### 接下来要做
 
-详见 [`doc/open-issues.md`](doc/open-issues.md) — 按优先级排列的待解决问题清单。
+**当前：Phase 6 集群组网** — 详见 [`doc/design/cluster-networking.md`](doc/design/cluster-networking.md)
 
-**近期优先：**
-- P0: Bridge API 认证（公网暴露安全风险）
-- P1: Tailscale 组网（加密 + 用户隔离）
-- P1: 回调可靠性（任务状态追踪）
+从 Phase 6a 开始实现。
 
 **后续规划：**
-- P2: 动态集群发现
-- P2: 全局 Agent 视图（`/agents?scope=cluster`）
-- Phase 6: Happy 集成 + 人类监控
+- Phase 7: Happy 集成 + 人类监控
+- 回调可靠性（任务状态追踪）
