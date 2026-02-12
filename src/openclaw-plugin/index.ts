@@ -53,10 +53,10 @@ const plugin = {
     api.registerTool({
       name: "bridge_agents",
       description:
-        "查看本机和集群中所有运行中的 Agent 列表。用于了解当前有哪些 Agent 在运行、它们的状态和类型。",
+        "查看本机和集群中所有运行中的 Agent 列表。返回集群视图，按机器分组显示每台机器上的 agent。",
       parameters: { type: "object", properties: {} },
       async execute() {
-        return bridgeFetch("/agents");
+        return bridgeFetch("/agents?scope=cluster");
       },
     });
 
