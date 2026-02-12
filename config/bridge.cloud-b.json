@@ -7,7 +7,7 @@
   "adapters": {
     "openclaw": {
       "gateway": "ws://127.0.0.1:18789",
-      "token": "REPLACE_WITH_REAL_TOKEN"
+      "token": "936ed3ca0e8af53c3e833473a0084729d9c7dea3d5e5eab0"
     }
   }
 }
