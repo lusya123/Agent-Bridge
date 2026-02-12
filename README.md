@@ -1,5 +1,7 @@
 # Agent Bridge
 
+**中文 | [English](README.en.md)**
+
 分布式 Agent 通信平台 — 让不同框架的 Agent 跨机器协作。
 
 ## 为什么需要 Agent Bridge？

@@ -106,11 +106,12 @@ export async function main() {
 
   const app = new Hono();
 
-  // Auth middleware — protects all routes except /health (which does its own check)
+  // Auth middleware — protects all routes except /health and /cluster/ws
   const auth = authMiddleware(() => clusterMgr.getSecret());
   app.use('*', async (c, next) => {
     // /health is public for Hub heartbeat probes
-    if (c.req.path === '/health') return next();
+    // /cluster/ws uses join-message auth, not HTTP Bearer
+    if (c.req.path === '/health' || c.req.path === '/cluster/ws') return next();
     return auth(c, next);
   });
 

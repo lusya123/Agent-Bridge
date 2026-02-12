@@ -63,7 +63,7 @@ const plugin = {
     api.registerTool({
       name: "bridge_spawn",
       description:
-        "在本机或远程机器创建新 Agent 或子任务。自动注入回调指令，spawned agent 完成后会把结果发回给你。",
+        "委托任务给本机或远程机器的 Agent，期待对方完成后返回结果。自动创建独立子会话并注入回调指令。适用场景：需要对方执行任务并汇报结果（如\"检查是否运行了 newapi\"、\"分析日志找出错误\"）。",
       parameters: {
         type: "object",
         properties: {
@@ -136,7 +136,7 @@ const plugin = {
     api.registerTool({
       name: "bridge_message",
       description:
-        "给任意 Agent 发消息，自动路由到本机或远程机器。用于给其他 Agent 发送指令、传递信息或协调任务。",
+        "单向发送消息给本机或远程机器的 Agent，不期待返回结果。适用场景：通知、协调、传递信息（如\"我已完成部署\"、\"准备接收数据\"），或回传任务结果（被 spawn 的 agent 用来回调）。",
       parameters: {
         type: "object",
         properties: {

@@ -69,7 +69,18 @@ export class ClusterWsServer {
 
   /** Attach to an existing HTTP server */
   attachToServer(server: import('node:http').Server): void {
-    this.wss = new WebSocketServer({ server, path: '/cluster/ws' });
+    this.wss = new WebSocketServer({ noServer: true });
+
+    // Handle WebSocket upgrade requests manually
+    server.on('upgrade', (request, socket, head) => {
+      if (request.url === '/cluster/ws') {
+        this.wss!.handleUpgrade(request, socket, head, (ws) => {
+          this.wss!.emit('connection', ws, request);
+        });
+      } else {
+        socket.destroy();
+      }
+    });
 
     this.wss.on('connection', (ws: WebSocket, _req: IncomingMessage) => {
       let edgeMachineId: string | null = null;
