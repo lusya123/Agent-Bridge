@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
 import { agentsHandler } from '../../src/api/agents.js';
 import { createMockAdapter } from '../helpers.js';
@@ -88,6 +88,14 @@ describe('GET /agents', () => {
       last_seen: Date.now(),
     });
 
+    // Mock fetch for real-time Hub agent query
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([
+        { id: 'remote-agent-1', type: 'openclaw', status: 'running' },
+        { id: 'remote-agent-2', type: 'openclaw', status: 'running' },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
     const adapter = createMockAdapter({
       agents: [{ id: 'local-1', type: 'openclaw', status: 'running', persistent: false }],
     });
@@ -109,6 +117,8 @@ describe('GET /agents', () => {
     const otherEntry = body.find((e) => e.machine_id === 'other');
     expect(otherEntry).toBeDefined();
     expect(otherEntry!.agents).toHaveLength(2);
+
+    fetchSpy.mockRestore();
   });
 
   it('excludes members with no agents from cluster view', async () => {

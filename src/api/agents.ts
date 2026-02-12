@@ -32,10 +32,44 @@ export function agentsHandler(adapters: Adapter[], clusterMgr?: ClusterManager) 
       agents: localAgents.map((a) => ({ id: a.id, type: a.type, status: a.status })),
     });
 
-    // Add agents from other cluster members (from synced info)
+    // Fetch agents from other Hub members in real-time
+    const secret = clusterMgr.getSecret();
+    const remoteMembers = clusterMgr.getMembers().filter(
+      (m) => m.machine_id !== selfId && m.type === 'hub' && m.bridge_url,
+    );
+
+    const fetches = remoteMembers.map(async (member) => {
+      try {
+        const headers: Record<string, string> = {};
+        if (secret) headers['Authorization'] = `Bearer ${secret}`;
+        const res = await fetch(`${member.bridge_url}/agents`, {
+          headers,
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          const agents = (await res.json()) as Array<{ id: string; type?: string; status?: string }>;
+          return { machine_id: member.machine_id, agents };
+        }
+      } catch (err) {
+        log.warn('API', `Failed to fetch agents from ${member.machine_id}:`,
+          err instanceof Error ? err.message : err);
+      }
+      // Fallback to synced data
+      if (member.agents.length > 0) {
+        return { machine_id: member.machine_id, agents: member.agents.map((id) => ({ id })) };
+      }
+      return null;
+    });
+
+    const remoteResults = await Promise.all(fetches);
+    for (const r of remoteResults) {
+      if (r) result.push(r);
+    }
+
+    // Add Edge members (no HTTP endpoint, use synced data)
     for (const member of clusterMgr.getMembers()) {
       if (member.machine_id === selfId) continue;
-      if (member.agents.length > 0) {
+      if (member.type === 'edge' && member.agents.length > 0) {
         result.push({
           machine_id: member.machine_id,
           agents: member.agents.map((id) => ({ id })),
