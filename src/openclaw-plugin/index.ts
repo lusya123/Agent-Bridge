@@ -1,12 +1,30 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { emptyPluginConfigSchema, jsonResult } from "openclaw/plugin-sdk";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
 const BRIDGE_ENDPOINT =
   process.env.AGENT_BRIDGE_ENDPOINT || "http://127.0.0.1:9100";
 
+/** Read secret from persisted token file or env var */
+function getBridgeSecret(): string | null {
+  if (process.env.AGENT_BRIDGE_SECRET) return process.env.AGENT_BRIDGE_SECRET;
+  const tokenFile = join(homedir(), ".agent-bridge", "token");
+  if (existsSync(tokenFile)) {
+    const token = readFileSync(tokenFile, "utf-8").trim();
+    const atIdx = token.indexOf("@");
+    return atIdx !== -1 ? token.slice(0, atIdx) : token;
+  }
+  return null;
+}
+
 async function bridgeFetch(path: string, options?: RequestInit) {
   try {
-    const res = await fetch(`${BRIDGE_ENDPOINT}${path}`, options);
+    const secret = getBridgeSecret();
+    const headers = new Headers(options?.headers);
+    if (secret) headers.set("Authorization", `Bearer ${secret}`);
+    const res = await fetch(`${BRIDGE_ENDPOINT}${path}`, { ...options, headers });
     const data = await res.json();
     if (!res.ok) {
       return jsonResult({
@@ -85,7 +103,10 @@ const plugin = {
         let callbackInfo = undefined;
         if (params.callback !== false) {
           try {
-            const infoRes = await fetch(`${BRIDGE_ENDPOINT}/info`);
+            const secret = getBridgeSecret();
+            const infoHeaders: Record<string, string> = {};
+            if (secret) infoHeaders["Authorization"] = `Bearer ${secret}`;
+            const infoRes = await fetch(`${BRIDGE_ENDPOINT}/info`, { headers: infoHeaders });
             const info = (await infoRes.json()) as { machine_id: string };
             callbackInfo = {
               caller_agent_id: "main",
