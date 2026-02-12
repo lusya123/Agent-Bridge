@@ -51,11 +51,13 @@
 - 4 个工具：`bridge_agents`、`bridge_spawn`、`bridge_message`、`bridge_stop`
 - Phase 5.5 新增：跨机器 spawn（`machine` 参数）、独立 session、动态创建 agent、回调注入
 
-## 关键文档
+## 文档
 
+- `doc/README.md` — 文档索引（用户文档、设计文档、项目管理）
 - `doc/open-issues.md` — 待解决问题清单（安全、集群、可靠性等）
-- `doc/phase5.5-cross-machine-spawn.md` — Phase 5.5 设计方案
+- `doc/design/Agent-Bridge-完整技术方案.md` — 完整技术方案
 - `CHANGELOG.md` — 进度记录
+- `doc/archive/` — 已完成的需求文档归档
 
 ## 核心设计原则
 

@@ -48,14 +48,13 @@
 
 ## 文档
 
-| 文档 | 说明 |
-|------|------|
-| [配置参考](doc/configuration.md) | bridge.json / cluster.json 字段详解、环境变量、CLI 参数 |
-| [部署指南](doc/deployment.md) | 单机/多机部署、Tailscale 组网、进程管理、防火墙配置 |
-| [API 参考](doc/api-reference.md) | 6 个端点完整格式、错误码一览、跨机器路由行为 |
-| [故障排查](doc/troubleshooting.md) | 常见问题及解决方案、调试技巧 |
+完整文档请查看 [doc/](doc/) 目录：
 
-> 内部设计文档在 [doc/design/](doc/design/) 目录下。
+- **用户文档**：[配置参考](doc/configuration.md)、[部署指南](doc/deployment.md)、[API 参考](doc/api-reference.md)、[故障排查](doc/troubleshooting.md)
+- **设计文档**：[完整技术方案](doc/design/Agent-Bridge-完整技术方案.md)、[OpenClaw Gateway 协议](doc/design/openclaw-gateway.md)
+- **项目管理**：[待解决问题清单](doc/open-issues.md)、[更新日志](CHANGELOG.md)
+
+详见 [doc/README.md](doc/README.md)。
 
 ## 快速开始
 
