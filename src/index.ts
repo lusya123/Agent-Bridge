@@ -199,7 +199,7 @@ export async function main() {
   if (selfType === 'hub') {
     // Hub: start WebSocket server for Edge connections
     wsServer = new ClusterWsServer(clusterMgr);
-    wsServer.attachToServer(server);
+    wsServer.attachToServer(server as any);
     router.setWsServer(wsServer);
     log.info('Bridge', 'Hub mode: WebSocket server ready for Edge connections');
   } else if (selfType === 'edge' && tokenStr) {
@@ -225,7 +225,7 @@ export async function main() {
         } else if (path === '/spawn' && body.task) {
           for (const adapter of adapters) {
             try {
-              await adapter.spawnAgent(body as any);
+              await adapter.spawnAgent?.(body as any);
               break;
             } catch { /* try next adapter */ }
           }
