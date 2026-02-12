@@ -32,10 +32,15 @@ function buildApp(
   return { app, adapters, heartbeatManager };
 }
 
-function postJSON(app: Hono, path: string, body: object) {
+function postJSON(
+  app: Hono,
+  path: string,
+  body: object,
+  headers: Record<string, string> = {},
+) {
   return app.request(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -198,6 +203,41 @@ describe('POST /spawn', () => {
     expect(res.status).toBe(500);
     expect(body.error_code).toBe('SPAWN_FAILED');
     expect(body.error).toBe('remote failed');
+  });
+
+  it('forwards Authorization header when proxying to remote spawn', async () => {
+    const config = createBridgeConfig({ machine_id: 'local-machine' });
+    const cluster = createClusterConfig([
+      { id: 'remote-1', bridge: 'http://remote-1:9100', role: 'worker' },
+    ]);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, agent_id: 'main', machine: 'remote-1' }),
+    } as Response);
+    const { app } = buildApp(config, cluster, [createMockAdapter({ type: 'generic' })]);
+
+    await postJSON(
+      app,
+      '/spawn',
+      {
+        type: 'generic',
+        task: 'do task',
+        machine: 'remote-1',
+      },
+      { Authorization: 'Bearer test-secret' },
+    );
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'http://remote-1:9100/spawn',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-secret',
+        }),
+      }),
+    );
   });
 
   it('returns 500 when local adapter spawn throws', async () => {

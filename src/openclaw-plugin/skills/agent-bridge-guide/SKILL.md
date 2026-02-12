@@ -66,6 +66,8 @@ bridge_stop {
 ## 注意事项
 
 - **agent_id 全局唯一**：不要用已存在的 ID 创建新 Agent
+- **跨机器任务必须显式 machine**：用户提到“另一台/那台/A 机/B 机”时，必须先映射到明确 machine_id（如 `cloud-a`、`cloud-b`）再调用工具
+- **需要结果回传时优先用 bridge_spawn**：并保持 `callback=true`，不要用单向 `bridge_message` 代替
 - **message 要清晰**：描述清楚任务目标、输出格式、截止条件
 - **及时清理**：完成后用 `bridge_stop` 释放资源
 - **错误处理**：如果返回 `ok: false`，检查 `error_code` 和 `detail`

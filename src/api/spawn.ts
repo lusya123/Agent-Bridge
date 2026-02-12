@@ -34,9 +34,15 @@ export function spawnHandler(
         ), 404);
       }
       try {
+        const authHeader = c.req.header('Authorization');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (authHeader) headers.Authorization = authHeader;
+
         const res = await fetch(`${machine.bridge}/spawn`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ ...body, machine: machine.id }),
         });
         let result: unknown;
