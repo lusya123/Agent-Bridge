@@ -1,14 +1,32 @@
 import type { Adapter } from './adapters/types.js';
 import type { BridgeConfig, ClusterConfig } from './config.js';
+import type { ClusterManager } from './cluster.js';
+import type { ClusterWsServer } from './cluster-ws.js';
 import { BridgeError, ErrorCode, getErrorDetail } from './errors.js';
 import { log } from './logger.js';
 
 export class Router {
+  private wsServer: ClusterWsServer | null = null;
+
   constructor(
     private config: BridgeConfig,
     private cluster: ClusterConfig,
     private adapters: Adapter[],
+    private clusterMgr?: ClusterManager,
   ) {}
+
+  /** Set the WebSocket server for Edge relay */
+  setWsServer(server: ClusterWsServer): void {
+    this.wsServer = server;
+  }
+
+  /** Build headers with auth if secret is available */
+  private authHeaders(extra?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = { ...extra };
+    const secret = this.clusterMgr?.getSecret();
+    if (secret) headers['Authorization'] = `Bearer ${secret}`;
+    return headers;
+  }
 
   async deliver(agentId: string, from: string, message: string, targetMachine?: string): Promise<void> {
     log.debug('Router', `Delivering message to ${agentId} from ${from}` +
@@ -16,6 +34,12 @@ export class Router {
 
     // If targetMachine is specified and not this machine, forward directly
     if (targetMachine && targetMachine !== this.config.machine_id) {
+      // Check if target is an Edge node connected to this Hub
+      if (this.tryRelayToEdge(targetMachine, '/message', { agent_id: agentId, from, message })) {
+        log.debug('Router', `Relayed message to Edge ${targetMachine} via WebSocket`);
+        return;
+      }
+
       const machine = this.cluster.machines.find((m) => m.id === targetMachine);
       if (!machine) {
         throw new BridgeError({
@@ -26,7 +50,7 @@ export class Router {
       }
       const res = await fetch(`${machine.bridge}/message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.authHeaders({ 'Content-Type': 'application/json' }),
         // Forward without machine field to prevent loops
         body: JSON.stringify({ agent_id: agentId, from, message }),
       });
@@ -64,7 +88,9 @@ export class Router {
 
     for (const machine of others) {
       try {
-        const locateRes = await fetch(`${machine.bridge}/agents`);
+        const locateRes = await fetch(`${machine.bridge}/agents`, {
+          headers: this.authHeaders(),
+        });
         if (!locateRes.ok) {
           remoteErrors.push(`${machine.id}: /agents returned ${locateRes.status}`);
           continue;
@@ -75,7 +101,7 @@ export class Router {
         // forward to remote bridge
         const res = await fetch(`${machine.bridge}/message`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: this.authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ agent_id: agentId, from, message }),
         });
         if (!res.ok) {
@@ -122,5 +148,13 @@ export class Router {
       errorCode: ErrorCode.AGENT_NOT_FOUND,
       message: `Agent "${agentId}" not found in cluster`,
     });
+  }
+
+  /** Try to relay a message to an Edge node via WebSocket. Returns true if relayed. */
+  private tryRelayToEdge(machineId: string, path: string, body: Record<string, unknown>): boolean {
+    if (!this.wsServer || !this.clusterMgr) return false;
+    const member = this.clusterMgr.getMember(machineId);
+    if (!member || member.type !== 'edge') return false;
+    return this.wsServer.relayToEdge(machineId, path, body);
   }
 }

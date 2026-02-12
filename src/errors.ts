@@ -9,6 +9,8 @@ export const ErrorCode = {
   SPAWN_FAILED: 'SPAWN_FAILED',
   STOP_FAILED: 'STOP_FAILED',
   REMOTE_UNREACHABLE: 'REMOTE_UNREACHABLE',
+  AUTH_REQUIRED: 'AUTH_REQUIRED',
+  AUTH_FAILED: 'AUTH_FAILED',
 } as const;
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];

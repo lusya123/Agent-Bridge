@@ -23,21 +23,31 @@
 
 ## 关键文件
 
-- `src/index.ts` — 服务入口
-- `src/router.ts` — 消息路由（本机直投 / 远程 HTTP 转发）
+- `src/index.ts` — 服务入口（含 Token/Cluster/Auth 初始化）
+- `src/router.ts` — 消息路由（本机直投 / 远程 HTTP 转发 / Edge WebSocket 中继）
+- `src/token.ts` — Token 生成、解析、持久化
+- `src/cluster.ts` — ClusterManager（成员管理、Hub 心跳）
+- `src/cluster-ws.ts` — WebSocket 中继（Hub 服务端 + Edge 客户端）
+- `src/middleware/auth.ts` — Bearer Token 认证中间件
+- `src/detect-ip.ts` — 公网 IP 自动检测
 - `src/adapters/` — 框架适配器
 - `config/bridge.example.json` — 本机配置模板
-- `config/cluster.example.json` — 集群配置模板
-- `doc/Agent-Bridge-完整技术方案.md` — 完整技术方案
+- `doc/design/cluster-networking.md` — Phase 6 集群组网设计
 
-## API 端点（6 个）
+## API 端点（10 个）
 
 - `GET  /info` — 机器信息（machine_id, capabilities, resources）
-- `GET  /agents` — 当前运行的 Agent 列表
+- `GET  /agents` — 当前运行的 Agent 列表（`?scope=cluster` 全局视图）
 - `GET  /locate?agent_id=xxx` — 定位 Agent 所在机器
 - `POST /message` — 发消息给 Agent（本机直投 / 远程转发 / `machine` 定向转发）
 - `POST /spawn` — 创建新 Agent（支持跨机器、独立 session、动态创建、回调注入）
 - `POST /stop` — 停止 Agent
+- `POST /cluster/join` — Hub 节点注册到集群
+- `GET  /cluster/members` — 查看集群成员列表
+- `GET  /health` — 健康检查（Hub 间心跳）
+- `WS   /cluster/ws` — Edge 节点 WebSocket 连接入口
+
+所有端点（/health 除外）需要 `Authorization: Bearer <secret>` 认证。
 
 ## 开发命令
 
@@ -69,7 +79,6 @@
 
 ## 当前状态
 
-- Phase 1 ~ 5.5 全部完成（86 unit tests, all passed）
-- Phase 6（集群组网）设计完成，待实现
+- Phase 1 ~ 6 全部完成（153 unit tests, all passed）
+- Phase 6 新增：Token 组网、Bearer 认证、ClusterManager、Hub/Edge WebSocket 中继、全局 Agent 视图
 - 设计文档：`doc/design/cluster-networking.md`
-- 实现分三个子阶段：6a（认证+集群基础）→ 6b（WebSocket中继+Edge节点）→ 6c（增强）

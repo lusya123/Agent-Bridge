@@ -105,12 +105,20 @@ if (command === 'start' || !command || command.startsWith('--')) {
   const configIdx = flagArgs.indexOf('--config');
   if (configIdx !== -1) process.env.CONFIG_PATH = flagArgs[configIdx + 1];
 
+  // Cluster token (--token <token> or persisted)
+  const tokenArg = flagArgs.indexOf('--token');
+  if (tokenArg !== -1) process.env.BRIDGE_TOKEN = flagArgs[tokenArg + 1];
+
+  // Public IP declaration (--public-ip <ip>)
+  const publicIpArg = flagArgs.indexOf('--public-ip');
+  if (publicIpArg !== -1) process.env.BRIDGE_PUBLIC_IP = flagArgs[publicIpArg + 1];
+
   main().catch((err) => {
     log.error('Bridge', 'Fatal:', err);
     process.exit(1);
   });
 } else {
   console.error(`Unknown command: ${command}`);
-  console.log('Usage: agent-bridge [install|uninstall|start] [--debug] [--port PORT] [--config PATH]');
+  console.log('Usage: agent-bridge [install|uninstall|start] [--debug] [--port PORT] [--config PATH] [--token TOKEN] [--public-ip IP]');
   process.exit(1);
 }

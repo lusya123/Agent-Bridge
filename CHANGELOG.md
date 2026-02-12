@@ -2,31 +2,41 @@
 
 ## [Unreleased] — Phase 6: 集群组网（Token + Hub Relay）
 
-### 设计完成（2026-02-12）
+### 实现完成（2026-02-12）
 
 详细设计文档：[`doc/design/cluster-networking.md`](doc/design/cluster-networking.md)
 
-#### 核心方案
+#### Phase 6a: 认证 + 集群基础 ✅
 
-- **Token 组网**：第一台机器自动生成 Token（`<128位随机密钥>@<hub地址>`），其他机器粘贴 Token 即可加入集群
-- **Hub/Edge 混合拓扑**：有公网 IP 的机器为 Hub（HTTP 直连），无公网 IP 的机器为 Edge（WebSocket 长连接到 Hub）
-- **一个 Token 解决三个问题**：API 认证 + 集群归属 + 用户隔离
-- **动态集群发现**：替换静态 `cluster.json`，机器加入/离开自动广播
-- **多 Hub 自动容灾**：Edge 节点从 welcome 响应获取所有 Hub 地址，断线自动切换
+- `src/token.ts` — Token 生成（128位随机 ab_ 前缀）、解析、持久化（~/.agent-bridge/token）
+- `src/middleware/auth.ts` — Hono 中间件，验证 Authorization: Bearer <secret>
+- `src/cluster.ts` — ClusterManager 类（成员列表管理、Hub 心跳、legacy 兼容）
+- `src/api/cluster.ts` — 新增 /cluster/join（POST）、/cluster/members（GET）、/health（GET）
+- `src/cli.ts` — 新增 --token 和 --public-ip 参数
+- `src/index.ts` — 集成 Token 解析、ClusterManager、认证中间件、Hub→Hub 注册
+- `src/router.ts` — 出站请求自动携带 Authorization 头
+- 所有现有端点加上认证中间件（/health 除外）
 
-#### 实现计划
+#### Phase 6b: WebSocket 中继 + Edge 节点 ✅
 
-- Phase 6a：认证 + 集群基础（Token、认证中间件、ClusterManager、Hub→Hub 注册）
-- Phase 6b：WebSocket 中继 + Edge 节点（WS 服务端/客户端、消息中继、多 Hub 容灾）
-- Phase 6c：增强（全局 Agent 视图、节点广播、E2E 验证）
+- `src/cluster-ws.ts` — ClusterWsServer（Hub 侧）+ ClusterWsClient（Edge 侧）
+- Edge→Hub WebSocket 握手：join + secret 验证 + welcome 响应
+- 消息中继：Hub 通过 WebSocket 推送 relay 消息给 Edge
+- Router 适配：识别 Edge 节点，走 WebSocket 中继而非 HTTP 转发
+- 心跳保活：Edge→Hub 30秒 ping/pong，连续 3 次无响应自动重连
+- 多 Hub 自动容灾：Edge 从 welcome 获取 Hub 列表，断线自动切换
+- `src/detect-ip.ts` — 公网 IP 自动检测
 
-#### 解决的问题
+#### Phase 6c: 增强 ✅
 
-- P0: API 无认证 → Token 中的 secret 作为 Bearer Token
-- P0: 不支持 NAT 穿透 → Edge 节点通过 WebSocket 连接 Hub
-- P1: 机器间明文通信 → Hub 间可升级 HTTPS
-- P1: 集群配置是静态的 → 动态发现替换 cluster.json
-- P1: 无用户隔离 → 不同 Token 的集群互不可见
+- `/agents?scope=cluster` — 集群全局 Agent 视图
+- 节点上下线广播（member_joined / member_left）
+- Edge 节点 Agent 信息同步到 Hub（agents_sync 消息）
+
+#### 测试
+
+- 153 unit tests, all passed（新增 67 个）
+- 覆盖：Token、Auth 中间件、ClusterManager、Cluster API、WebSocket 服务端/客户端、Edge 中继、Agent 同步
 
 ---
 
